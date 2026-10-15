@@ -164,30 +164,41 @@ export const verifyChangeDobBody = async (req, res, next) => {
 // create a middleware to validate the token
 export const verifyToken = async (req, res, next) => {
   try {
-    // read the token from the request header
-    const token = req.headers["x-access-token"];
-    // check if token is present
+    let token = req.headers["x-access-token"];
+    
     if (!token) {
       return res
-        .status(403)
+        .status(401)
         .send({ message: "Access Denied! No token provided" });
     }
+    
     if (token.startsWith("Bearer ")) {
-      token = token.slice(7, token.length);
+      token = token.slice(7);
     }
-    // verify the token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    // check if userName is present in the database
+    
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (jwtError) {
+      if (jwtError.name === "TokenExpiredError") {
+        return res.status(401).send({ message: "Token expired" });
+      }
+      if (jwtError.name === "JsonWebTokenError") {
+        return res.status(401).send({ message: "Invalid token" });
+      }
+      return res.status(401).send({ message: "Token validation failed" });
+    }
+    
     const user = await User_Model.findOne({ userName: decoded.userName });
     if (!user) {
-      return res.status(401).send({ message: "Unauthorized" });
+      return res.status(401).send({ message: "User not found" });
     }
-    // add the user to the request object
+    
     req.user = user;
     next();
   } catch (err) {
-    console.log("error while validating the token", err);
-    res.status(500).send({ message: "Error validating the token" });
+    console.error("Token verification error:", err.message);
+    res.status(500).send({ message: "Internal server error" });
   }
 };
 

@@ -16,10 +16,7 @@ import {
   verifyDeleteCommentBody,
 } from "./../middlewares/posts.mw.js";
 import { verifyToken } from "./../middlewares/auth.mw.js";
-import {
-  postPictureUpload,
-  postVideoUpload,
-} from "../controllers/multer.controller.js";
+import { postMediaUpload } from "../controllers/multer.controller.js";
 
 const router = express.Router();
 
@@ -27,8 +24,7 @@ const router = express.Router();
 router.post(
   "/add-post",
   verifyToken,
-  postPictureUpload.array("postPictures", 12),
-  postVideoUpload.array("postVideos", 2),
+  postMediaUpload.array("media", 12),
   verifyAddPostBody,
   addPost
 );

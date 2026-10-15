@@ -7,6 +7,7 @@ import {
   addRequest,
   getHomeFeed,
   getUser,
+  listUsers,
 } from "../controllers/user.controller.js";
 import { profilePictureUpload } from "../controllers/multer.controller.js";
 import { isAdmin, verifyToken } from "../middlewares/auth.mw.js";
@@ -44,6 +45,8 @@ router.post(
   changeRole
 );
 router.post("/add-request", verifyToken, verifyAddRequestBody, addRequest);
-// router.get("/home", verifyToken, getHomeFeed);
+
+// Admin routes
+router.get("/list-users", verifyToken, isAdmin, listUsers);
 
 export default router;

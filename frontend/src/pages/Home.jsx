@@ -1,15 +1,16 @@
 import { PlusCircledIcon } from "@radix-ui/react-icons";
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Menu } from "@/components/pageComponents/Menu";
-import { PodcastEmptyPlaceholder } from "@/components/pageComponents/PodcastEmptyPlaceholder";
 import { Sidebar } from "@/components/pageComponents/Sidebar";
 import PostFeedView from "@/components/pageComponents/PostFeedView";
+import { AddPostDialog } from "@/components/pageComponents/AddPostDialog";
 import { useSelector } from "react-redux";
 import axios from "axios";
+
 export const metadata = {
   title: "Slash Imagine",
   description: "Official slash imagine website",
@@ -19,62 +20,41 @@ export const Context = React.createContext();
 
 export default function Home() {
   const [posts, setPosts] = useState([]);
-  // set up useEffect to fetch an api with axios
+  const [addPostOpen, setAddPostOpen] = useState(false);
   const localUser = useSelector((state) => state.user);
 
-  const fetchUser = async (userName) => {
+  const fetchHomeFeed = async () => {
     try {
-      const url = `${import.meta.env.VITE_BASE_URL}/user/get-user`;
-      const body = {
-        userName: userName,
-      };
+      const url = `${import.meta.env.VITE_BASE_URL}/user/get-home-feed`;
       const headers = {
         "Content-Type": "application/json",
-        "x-access-token": `${localUser.token}`,
+        "x-access-token": localUser.token,
       };
-      const res = await axios.post(url, body, { headers });
-      // set the first letter of the first name and last name to capital letters
-      const firstName =
-        res.data.firstName.charAt(0).toUpperCase() +
-        res.data.firstName.slice(1).toLowerCase();
-      const lastName =
-        res.data.lastName.charAt(0).toUpperCase() +
-        res.data.lastName.slice(1).toLowerCase();
-      return `${firstName} ${lastName}`;
+      const res = await axios.get(url, { headers });
+
+      // Backend now returns posts with author info attached
+      const postsWithFullNames = (res.data.posts || res.data).map((post) => ({
+        ...post,
+        fullName: post.author?.fullName || 
+          `${post.author?.firstName || ''} ${post.author?.lastName || ''}`.trim() ||
+          post.userName,
+      }));
+      setPosts(postsWithFullNames);
     } catch (err) {
-      console.error(
-        "Error fetching user:",
-        err.response ? err.response.data : err.message
-      );
+      console.error("Error:", err.response ? err.response.data : err.message);
     }
   };
 
   useEffect(() => {
-    const fetchHomeFeed = async () => {
-      try {
-        const url = `${import.meta.env.VITE_BASE_URL}/user/get-home-feed`;
-        const headers = {
-          "Content-Type": "application/json",
-          "x-access-token": `${localUser.token}`,
-        };
-        const res = await axios.get(url, { headers });
+    if (localUser?.token) {
+      fetchHomeFeed();
+    }
+  }, [localUser?.token]);
 
-        // Map over the posts and fetch user details for each
-        const postsWithFullNames = await Promise.all(
-          res.data.map(async (post) => {
-            const fullName = await fetchUser(post.userName);
-            return { ...post, fullName };
-          })
-        );
-        // Set posts with full names
-        setPosts(postsWithFullNames);
-      } catch (err) {
-        console.error("Error:", err.response ? err.response.data : err.message);
-      }
-    };
-
+  const handlePostCreated = () => {
     fetchHomeFeed();
-  }, []);
+    setAddPostOpen(false);
+  };
   return (
     <Context.Provider value={[posts, setPosts]}>
       <div className="wrapper h-screen overflow-hidden">
@@ -97,10 +77,11 @@ export default function Home() {
                         </TabsTrigger>
                       </TabsList>
                       <div className="ml-auto mr-0">
-                        <Button>
-                          <PlusCircledIcon className="mr-2 h-4 w-4" />
-                          Add Post
-                        </Button>
+                        <AddPostDialog 
+                          open={addPostOpen} 
+                          onOpenChange={setAddPostOpen}
+                          onPostCreated={handlePostCreated}
+                        />
                       </div>
                     </div>
                     <Separator className="my-4" />
@@ -122,11 +103,7 @@ export default function Home() {
                             </div>
                           </div>
                           <Separator className="my-4" />
-                          <PostFeedView
-                            // posts={posts}
-                            // setPosts={setPosts}
-                            className="mb-72"
-                          />
+                          <PostFeedView className="mb-72" />
                         </ScrollArea>
                       </div>
                     </TabsContent>
@@ -137,15 +114,17 @@ export default function Home() {
                       <div className="flex items-center justify-between">
                         <div className="space-y-1">
                           <h2 className="text-2xl font-semibold tracking-tight">
-                            New Episodes
+                            Trending
                           </h2>
                           <p className="text-sm text-muted-foreground">
-                            Your favorite podcasts. Updated daily.
+                            Popular posts across the platform.
                           </p>
                         </div>
                       </div>
                       <Separator className="my-4" />
-                      <PodcastEmptyPlaceholder />
+                      <div className="flex h-[200px] items-center justify-center rounded-md border border-dashed">
+                        <p className="text-muted-foreground">Coming soon...</p>
+                      </div>
                     </TabsContent>
                   </Tabs>
                 </div>

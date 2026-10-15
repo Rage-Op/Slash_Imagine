@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
 import { useForm } from "react-hook-form";
@@ -6,14 +6,7 @@ import { z } from "zod";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, CaretSortIcon, CheckIcon } from "@radix-ui/react-icons";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-} from "@/components/ui/command";
+import { CalendarIcon } from "@radix-ui/react-icons";
 import {
   Form,
   FormControl,
@@ -29,181 +22,328 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { toast } from "@/components/ui/use-toast";
+import { useToast } from "@/components/ui/use-toast";
+import { useSelector } from "react-redux";
+import axios from "axios";
+import { Separator } from "@/components/ui/separator";
 
-const languages = [
-  { label: "English", value: "en" },
-  { label: "French", value: "fr" },
-  { label: "German", value: "de" },
-  { label: "Spanish", value: "es" },
-  { label: "Portuguese", value: "pt" },
-  { label: "Russian", value: "ru" },
-  { label: "Japanese", value: "ja" },
-  { label: "Korean", value: "ko" },
-  { label: "Chinese", value: "zh" },
-];
-
-const accountFormSchema = z.object({
-  name: z
-    .string()
-    .min(2, { message: "Name must be at least 2 characters." })
-    .max(30, { message: "Name must not be longer than 30 characters." }),
-  dob: z.date({ required_error: "A date of birth is required." }),
-  language: z.string({ required_error: "Please select a language." }),
+const passwordSchema = z.object({
+  currentPassword: z.string().min(8, "Password must be at least 8 characters"),
+  newPassword: z.string().min(8, "Password must be at least 8 characters"),
+  confirmPassword: z.string(),
+}).refine(data => data.newPassword === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
 });
 
-// Default values for the form
-const defaultValues = {
-  name: "Your name",
-  dob: new Date("2023-01-23"),
-};
+const emailSchema = z.object({
+  newEmail: z.string().email("Invalid email address"),
+  password: z.string().min(1, "Password is required"),
+});
+
+const phoneSchema = z.object({
+  newContactNumber: z.string().min(10, "Invalid phone number"),
+  password: z.string().min(1, "Password is required"),
+});
+
+const dobSchema = z.object({
+  newDob: z.date({ required_error: "Date of birth is required" }),
+  password: z.string().min(1, "Password is required"),
+});
 
 export const AccountForm = () => {
-  const form = useForm({
-    resolver: zodResolver(accountFormSchema),
-    defaultValues,
+  const localUser = useSelector((state) => state.user);
+  const { toast } = useToast();
+  const [userInfo, setUserInfo] = useState({});
+
+  const passwordForm = useForm({
+    resolver: zodResolver(passwordSchema),
+    defaultValues: { currentPassword: "", newPassword: "", confirmPassword: "" },
   });
 
-  function onSubmit(data) {
-    toast({
-      title: "You submitted the following values:",
-      description: (
-        <pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4">
-          <code className="text-white">{JSON.stringify(data, null, 2)}</code>
-        </pre>
-      ),
-    });
-  }
+  const emailForm = useForm({
+    resolver: zodResolver(emailSchema),
+    defaultValues: { newEmail: "", password: "" },
+  });
+
+  const phoneForm = useForm({
+    resolver: zodResolver(phoneSchema),
+    defaultValues: { newContactNumber: "", password: "" },
+  });
+
+  const dobForm = useForm({
+    resolver: zodResolver(dobSchema),
+    defaultValues: { newDob: undefined, password: "" },
+  });
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const url = `${import.meta.env.VITE_BASE_URL}/user/get-user`;
+        const headers = {
+          "Content-Type": "application/json",
+          "x-access-token": localUser.token,
+        };
+        const res = await axios.post(url, {}, { headers });
+        setUserInfo(res.data);
+        emailForm.setValue("newEmail", res.data.email || "");
+        phoneForm.setValue("newContactNumber", res.data.contactNumber || "");
+        if (res.data.dob) {
+          dobForm.setValue("newDob", new Date(res.data.dob));
+        }
+      } catch (err) {
+        console.error("Error fetching user:", err);
+      }
+    };
+    if (localUser?.token) fetchUser();
+  }, [localUser?.token]);
+
+  const headers = {
+    "Content-Type": "application/json",
+    "x-access-token": localUser.token,
+  };
+
+  const onPasswordSubmit = async (data) => {
+    try {
+      await axios.post(
+        `${import.meta.env.VITE_BASE_URL}/auth/change-password`,
+        { password: data.currentPassword, newPassword: data.newPassword },
+        { headers }
+      );
+      toast({ title: "Success", description: "Password updated successfully" });
+      passwordForm.reset();
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: err.response?.data?.message || "Failed to update password",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const onEmailSubmit = async (data) => {
+    try {
+      await axios.post(
+        `${import.meta.env.VITE_BASE_URL}/auth/change-email`,
+        { newEmail: data.newEmail, password: data.password },
+        { headers }
+      );
+      toast({ title: "Success", description: "Email updated successfully" });
+      emailForm.setValue("password", "");
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: err.response?.data?.message || "Failed to update email",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const onPhoneSubmit = async (data) => {
+    try {
+      await axios.post(
+        `${import.meta.env.VITE_BASE_URL}/auth/change-contact-number`,
+        { newContactNumber: data.newContactNumber, password: data.password },
+        { headers }
+      );
+      toast({ title: "Success", description: "Phone number updated successfully" });
+      phoneForm.setValue("password", "");
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: err.response?.data?.message || "Failed to update phone",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const onDobSubmit = async (data) => {
+    try {
+      await axios.post(
+        `${import.meta.env.VITE_BASE_URL}/auth/change-dob`,
+        { newDob: format(data.newDob, "yyyy-MM-dd"), password: data.password },
+        { headers }
+      );
+      toast({ title: "Success", description: "Date of birth updated successfully" });
+      dobForm.setValue("password", "");
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: err.response?.data?.message || "Failed to update date of birth",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
-    <>
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-          <FormField
-            control={form.control}
-            name="name"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Name</FormLabel>
-                <FormControl>
-                  <Input placeholder="Your name" {...field} />
-                </FormControl>
-                <FormDescription>
-                  This is the name that will be displayed on your profile and in
-                  emails.
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="dob"
-            render={({ field }) => (
-              <FormItem className="flex flex-col">
-                <FormLabel>Date of birth</FormLabel>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <FormControl>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-[240px] pl-3 text-left font-normal",
-                          !field.value && "text-muted-foreground"
-                        )}
-                      >
-                        {field.value ? (
-                          format(field.value, "PPP")
-                        ) : (
-                          <span>Pick a date</span>
-                        )}
-                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                      </Button>
-                    </FormControl>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={field.value}
-                      onSelect={field.onChange}
-                      disabled={(date) =>
-                        date > new Date() || date < new Date("1900-01-01")
-                      }
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-                <FormDescription>
-                  Your date of birth is used to calculate your age.
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="language"
-            render={({ field }) => (
-              <FormItem className="flex flex-col">
-                <FormLabel>Language</FormLabel>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <FormControl>
-                      <Button
-                        variant="outline"
-                        role="combobox"
-                        className={cn(
-                          "w-[200px] justify-between",
-                          !field.value && "text-muted-foreground"
-                        )}
-                      >
-                        {field.value
-                          ? languages.find(
-                              (language) => language.value === field.value
-                            )?.label
-                          : "Select language"}
-                        <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </FormControl>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[200px] p-0">
-                    <Command>
-                      <CommandInput placeholder="Search language..." />
-                      <CommandEmpty>No language found.</CommandEmpty>
-                      <CommandGroup>
-                        {languages.map((language) => (
-                          <CommandItem
-                            value={language.label}
-                            key={language.value}
-                            onSelect={() => {
-                              form.setValue("language", language.value || "");
-                            }}
-                          >
-                            <CheckIcon
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                language.value === field.value
-                                  ? "opacity-100"
-                                  : "opacity-0"
-                              )}
-                            />
-                            {language.label}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-                <FormDescription>
-                  This is the language that will be used in the dashboard.
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <Button type="submit">Update account</Button>
-        </form>
-      </Form>
-    </>
+    <div className="space-y-8">
+      <div>
+        <h3 className="text-lg font-medium">Change Password</h3>
+        <Form {...passwordForm}>
+          <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} className="space-y-4 mt-4">
+            <FormField
+              control={passwordForm.control}
+              name="currentPassword"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Current Password</FormLabel>
+                  <FormControl><Input type="password" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={passwordForm.control}
+              name="newPassword"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>New Password</FormLabel>
+                  <FormControl><Input type="password" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={passwordForm.control}
+              name="confirmPassword"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Confirm New Password</FormLabel>
+                  <FormControl><Input type="password" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <Button type="submit">Update Password</Button>
+          </form>
+        </Form>
+      </div>
+
+      <Separator />
+
+      <div>
+        <h3 className="text-lg font-medium">Change Email</h3>
+        <Form {...emailForm}>
+          <form onSubmit={emailForm.handleSubmit(onEmailSubmit)} className="space-y-4 mt-4">
+            <FormField
+              control={emailForm.control}
+              name="newEmail"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>New Email</FormLabel>
+                  <FormControl><Input type="email" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={emailForm.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Current Password</FormLabel>
+                  <FormControl><Input type="password" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <Button type="submit">Update Email</Button>
+          </form>
+        </Form>
+      </div>
+
+      <Separator />
+
+      <div>
+        <h3 className="text-lg font-medium">Change Phone Number</h3>
+        <Form {...phoneForm}>
+          <form onSubmit={phoneForm.handleSubmit(onPhoneSubmit)} className="space-y-4 mt-4">
+            <FormField
+              control={phoneForm.control}
+              name="newContactNumber"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>New Phone Number</FormLabel>
+                  <FormControl><Input type="tel" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={phoneForm.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Current Password</FormLabel>
+                  <FormControl><Input type="password" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <Button type="submit">Update Phone</Button>
+          </form>
+        </Form>
+      </div>
+
+      <Separator />
+
+      <div>
+        <h3 className="text-lg font-medium">Change Date of Birth</h3>
+        <Form {...dobForm}>
+          <form onSubmit={dobForm.handleSubmit(onDobSubmit)} className="space-y-4 mt-4">
+            <FormField
+              control={dobForm.control}
+              name="newDob"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Date of Birth</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-[240px] pl-3 text-left font-normal",
+                            !field.value && "text-muted-foreground"
+                          )}
+                        >
+                          {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={field.value}
+                        onSelect={field.onChange}
+                        disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
+                        initialFocus
+                        captionLayout="dropdown-buttons"
+                        fromYear={1900}
+                        toYear={new Date().getFullYear()}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={dobForm.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Current Password</FormLabel>
+                  <FormControl><Input type="password" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <Button type="submit">Update Date of Birth</Button>
+          </form>
+        </Form>
+      </div>
+    </div>
   );
 };

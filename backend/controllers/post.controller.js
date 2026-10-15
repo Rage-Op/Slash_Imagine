@@ -3,44 +3,63 @@ import { User_Model, Post_Model, Comment_Model } from "../models/user.model.js";
 // Logic to add a new post to the user's posts array
 export const addPost = async (req, res) => {
   try {
-    // check if userId id present in the database
     const user = await User_Model.findOne({ userName: req.user.userName });
     if (user == null) {
       return res.status(400).send({ message: "Invalid userName in token" });
     }
+    
     // Initialize new post data object
     const newPostData = {
       userName: req.user.userName,
       title: req.body.title,
       content: req.body.content,
+      medias: [],
+      tags: [],
     };
-    // Add medias if provided and ensure it's an array of strings
-    if (req.body.medias.length > 0) {
-      newPostData.medias = [];
-      // map and push every media links in the newPostData.medias array
-      req.body.medias.forEach((media) => {
-        newPostData.medias.push(media);
+    
+    // Add uploaded files as media URLs
+    if (req.files && req.files.length > 0) {
+      req.files.forEach((file) => {
+        const relativePath = file.path.replace("public/", "/");
+        const mediaUrl = `/assets${relativePath.replace("/assets", "")}`;
+        newPostData.medias.push(mediaUrl);
       });
     }
-    // Add tags if provided and ensure it's an array of strings
-    if (req.body.tags) {
-      newPostData.tags = req.body.tags;
+    
+    // Add external media URLs if provided
+    if (req.body.medias) {
+      const mediaUrls = Array.isArray(req.body.medias) 
+        ? req.body.medias 
+        : [req.body.medias];
+      mediaUrls.forEach((url) => {
+        if (url && url.startsWith("http")) {
+          newPostData.medias.push(url);
+        }
+      });
     }
-    //   create a new post item from the Post_Model schema
+    
+    // Add tags if provided
+    if (req.body.tags) {
+      const tags = Array.isArray(req.body.tags) 
+        ? req.body.tags 
+        : req.body.tags.split(",").map(t => t.trim());
+      newPostData.tags = tags;
+    }
+    
     const newPost = new Post_Model(newPostData);
-    // Save the post to the Post collection
     const savedPost = await newPost.save();
-    // update the posts
-    user.posts.posts.push(savedPost);
+    
+    user.posts.posts.push(savedPost._id);
     user.posts.numberofPosts += 1;
     await user.save();
-    // return success message
-    res.status(200).send({ message: "Post added successfully" });
+    
+    res.status(201).send({ 
+      message: "Post created successfully",
+      post: savedPost
+    });
   } catch (error) {
-    console.error("Error adding post:", error);
-    res
-      .status(500)
-      .send({ message: "Some error occurred while adding post", error });
+    console.error("Error adding post:", error.message);
+    res.status(500).send({ message: "Error creating post" });
   }
 };
 
@@ -210,39 +229,46 @@ export const deletePost = async (req, res) => {
 // Logic to delete a comment
 export const deleteComment = async (req, res) => {
   try {
-    // check if userId id present in the database
     const user = await User_Model.findOne({ userName: req.user.userName });
     if (user == null) {
       return res.status(400).send({ message: "Invalid userName in token" });
     }
-    // check if postId id present in the database
-    const post = await Post_Model.findOne({ _id: req.body.postId });
+    
+    const post = await Post_Model.findOne({ _id: req.body.postId }).populate("comments");
     if (post == null) {
-      return res.status(400).send({ message: "Invalid postId in body" });
+      return res.status(404).send({ message: "Post not found" });
     }
-    // check if the user is the owner of the comment
-    if (
-      post.comments.find(
-        (comment) => comment._id.toString() === req.body.commentId
-      ).userName !== req.user.userName
-    ) {
-      return res
-        .status(400)
-        .send({ message: "You are unauthorized to delete this comment" });
-    }
-    // delete the comment
-    post.comments = post.comments.filter(
-      (comment) => comment._id.toString() !== req.body.commentId
+    
+    const comment = post.comments.find(
+      (c) => c._id.toString() === req.body.commentId
     );
-    post.commentsCount -= 1;
-    // save the post
+    
+    if (!comment) {
+      return res.status(404).send({ message: "Comment not found" });
+    }
+    
+    // Allow deletion if user owns the comment OR owns the post
+    const isCommentOwner = comment.userName === req.user.userName;
+    const isPostOwner = post.userName === req.user.userName;
+    
+    if (!isCommentOwner && !isPostOwner) {
+      return res.status(403).send({ message: "You are not authorized to delete this comment" });
+    }
+    
+    // Also delete from the Comment collection
+    await Comment_Model.findByIdAndDelete(req.body.commentId);
+    
+    // Remove from post's comments array
+    post.comments = post.comments.filter(
+      (c) => c._id.toString() !== req.body.commentId
+    );
+    post.commentsCount = Math.max(0, post.commentsCount - 1);
     await post.save();
+    
+    res.status(200).send({ message: "Comment deleted successfully" });
   } catch (err) {
-    console.error("Error deleting comment:", err);
-    res.status(500).send({
-      message: "Some error occurred while deleting comment",
-      error: err,
-    });
+    console.error("Error deleting comment:", err.message);
+    res.status(500).send({ message: "Error deleting comment" });
   }
 };
 

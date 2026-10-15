@@ -3,15 +3,9 @@ import { User_Model } from "../models/user.model.js";
 // create a middleware to validate add post request body
 export const verifyAddPostBody = async (req, res, next) => {
   try {
-    // Check for title, content, image and tags of the post
-    if (
-      !req.body.title ||
-      !req.body.content ||
-      !req.body.medias ||
-      !req.body.tags
-    ) {
+    if (!req.body.title || !req.body.content) {
       return res.status(400).send({
-        message: "Title, content, media urls and tags of the post are required",
+        message: "Title and content are required",
       });
     }
     next();

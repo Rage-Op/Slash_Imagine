@@ -1,24 +1,59 @@
 import { User_Model, Request_Model, Post_Model } from "../models/user.model.js";
 
+// Logic to list all users (admin only)
+export const listUsers = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+    
+    const users = await User_Model.find({})
+      .select("userName firstName lastName email role avatar membership createdAt")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+    
+    const total = await User_Model.countDocuments();
+    
+    res.status(200).send({
+      users,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    console.error("Error listing users:", error.message);
+    res.status(500).send({ message: "Error listing users" });
+  }
+};
+
 // Logic to change avatar
 export const changeAvatar = async (req, res) => {
   try {
-    // check if userId id present in the database
     const user = await User_Model.findOne({ userName: req.user.userName });
     if (user == null) {
       return res.status(400).send({ message: "Invalid userName in token" });
     }
-    // update the avatar
-    const newAvatar = `/profile-pictures/${req.body.avatarFilename}`;
+    
+    if (!req.body.avatarFilename) {
+      return res.status(400).send({ message: "No avatar file uploaded" });
+    }
+    
+    // Fixed: Include /assets prefix in the path
+    const newAvatar = `/assets/profile-pictures/${req.body.avatarFilename}`;
     user.avatar = newAvatar;
     await user.save();
-    // return success message
-    res.status(200).send({ message: "Avatar updated successfully" });
+    
+    res.status(200).send({ 
+      message: "Avatar updated successfully",
+      avatar: newAvatar
+    });
   } catch (error) {
-    console.error("Error updating avatar:", error);
-    res
-      .status(500)
-      .send({ message: "Some error occurred while updating avatar", error });
+    console.error("Error updating avatar:", error.message);
+    res.status(500).send({ message: "Error updating avatar" });
   }
 };
 
@@ -66,24 +101,36 @@ export const addInterests = async (req, res) => {
   }
 };
 
-// Logic to change the role
+// Logic to change another user's role (admin only)
 export const changeRole = async (req, res) => {
   try {
-    // check if userId id present in the database
-    const user = await User_Model.findOne({ userName: req.user.userName });
-    if (user == null) {
-      return res.status(400).send({ message: "Invalid userName in token" });
+    const targetUserName = req.body.userName;
+    const newRole = req.body.newRole;
+    
+    if (!targetUserName) {
+      return res.status(400).send({ message: "Target userName is required" });
     }
-    // update the role
-    user.role = req.body.newRole;
-    await user.save();
-    // return success message
-    res.status(200).send({ message: "Role updated successfully" });
+    
+    if (!["User", "Admin", "Moderator"].includes(newRole)) {
+      return res.status(400).send({ message: "Invalid role. Must be User, Admin, or Moderator" });
+    }
+    
+    const targetUser = await User_Model.findOne({ userName: targetUserName });
+    if (targetUser == null) {
+      return res.status(404).send({ message: "Target user not found" });
+    }
+    
+    targetUser.role = newRole;
+    await targetUser.save();
+    
+    res.status(200).send({ 
+      message: "Role updated successfully",
+      userName: targetUserName,
+      newRole: newRole
+    });
   } catch (error) {
-    console.error("Error updating role:", error);
-    res
-      .status(500)
-      .send({ message: "Some error occurred while updating role", error });
+    console.error("Error updating role:", error.message);
+    res.status(500).send({ message: "Error updating role" });
   }
 };
 
@@ -116,52 +163,89 @@ export const addRequest = async (req, res) => {
 // Logic to send user an array of posts from post model to show on the home page
 export const getHomeFeed = async (req, res) => {
   try {
-    // get all posts from the Post collection
-    const posts = await Post_Model.find().populate("comments");
-    // return the posts
-    res.status(200).send(posts);
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+    
+    // Get posts sorted by newest first with pagination
+    const posts = await Post_Model.find()
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate("comments")
+      .lean();
+    
+    // Get unique usernames from posts
+    const userNames = [...new Set(posts.map(post => post.userName))];
+    
+    // Fetch all authors in a single query (avoiding N+1)
+    const authors = await User_Model.find({ userName: { $in: userNames } })
+      .select("userName firstName lastName avatar")
+      .lean();
+    
+    // Create a map for quick lookup
+    const authorMap = {};
+    authors.forEach(author => {
+      authorMap[author.userName] = {
+        firstName: author.firstName,
+        lastName: author.lastName,
+        avatar: author.avatar,
+        fullName: `${author.firstName} ${author.lastName}`
+      };
+    });
+    
+    // Attach author info to each post
+    const postsWithAuthors = posts.map(post => ({
+      ...post,
+      author: authorMap[post.userName] || { fullName: post.userName }
+    }));
+    
+    const total = await Post_Model.countDocuments();
+    
+    res.status(200).send({
+      posts: postsWithAuthors,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
   } catch (error) {
-    console.error("Error getting home feed:", error);
-    res
-      .status(500)
-      .send({ message: "Some error occurred while getting home feed", error });
+    console.error("Error getting home feed:", error.message);
+    res.status(500).send({ message: "Error getting home feed" });
   }
 };
 
 // Logic to send the user profile data
 export const getUser = async (req, res) => {
   try {
-    // if the body contains a userName then send that user's information
-    if (req.body.userName) {
+    // if the body contains a userName then send that user's information (public profile)
+    if (req.body.userName && req.body.userName !== req.user.userName) {
       const anotherUser = await User_Model.findOne({
         userName: req.body.userName,
       });
       if (anotherUser == null) {
-        return res.status(400).send({ message: "Unable to the user" });
+        return res.status(404).send({ message: "User not found" });
       }
-      // return the user without the password
+      // return only public profile data (no email, phone, DOB)
       res.status(200).send({
         userName: anotherUser.userName,
         firstName: anotherUser.firstName,
         lastName: anotherUser.lastName,
-        dob: anotherUser.dob,
-        contactNumber: anotherUser.contactNumber,
-        email: anotherUser.email,
         avatar: anotherUser.avatar,
         country: anotherUser.country,
         interests: anotherUser.interests,
         role: anotherUser.role,
         posts: anotherUser.posts,
-        friends: anotherUser.friends,
         membership: anotherUser.membership,
       });
     } else {
-      // check if userId id present in the database
+      // return own profile with all data
       const user = await User_Model.findOne({ userName: req.user.userName });
       if (user == null) {
         return res.status(400).send({ message: "Invalid userName in token" });
       }
-      // return the user without the password
       res.status(200).send({
         userName: user.userName,
         firstName: user.firstName,
@@ -179,10 +263,7 @@ export const getUser = async (req, res) => {
       });
     }
   } catch (error) {
-    console.error("Error getting user profile:", error);
-    res.status(500).send({
-      message: "Some error occurred while getting user profile",
-      error,
-    });
+    console.error("Error getting user profile:", error.message);
+    res.status(500).send({ message: "Error retrieving user profile" });
   }
 };

@@ -1,23 +1,11 @@
-import React, {
-  useState,
-  useEffect,
-  useRef,
-  useCallback,
-  useContext,
-} from "react";
+import React, { useState, useEffect, useRef, useCallback, useContext } from "react";
 import { Context } from "@/pages/Home";
 import { useSelector } from "react-redux";
+import axios from "axios";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  MoreVertical,
-  Subtitles,
-  Share2,
-  VolumeX,
-  Volume2,
-  UserPlus,
-} from "lucide-react";
+import { MoreVertical, MessageCircle, VolumeX, Volume2, Trash2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,264 +18,32 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
-} from "@/components/ui/carousel";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import { HeartButton } from "@/components/pageComponents/HeartButton";
 import { ShareButton } from "./ShareButton";
 import { PostComment } from "./PostComment";
-
-const posts = [
-  {
-    _id: "1",
-    fullName: "William Smith",
-    email: "williamsmith@example.com",
-    userName: "will_smits123",
-    content:
-      "Hi, let's have a meeting tomorrow to discuss the project. I've been reviewing the project details and have some ideas I'd like to share.",
-    createdAt: "2023-10-22T09:00:00",
-    medias: [
-      "https://assets.lummi.ai/assets/Qma1aBRXFsApFohRJrpJczE5QXGY6HhHKz24ybuw1khbou?auto=format&w=500",
-      "https://assets.lummi.ai/assets/QmZBpAeh18DHxVNEEcJErt1UXGjZYCedSidJ6cybrDZdeS?auto=format&w=500",
-      "https://assets.lummi.ai/assets/QmbMZFEfk2qwQkkmXYncpvHapkNQF5HuTrcascJC7edpfW?auto=format&w=500",
-      "https://assets.lummi.ai/assets/QmXm6HVi3wwGy3jaCmECfoL8AULPerjQQh6abKTVhFMewK?auto=format&w=500",
-      "https://assets.lummi.ai/assets/QmRy3tpFDCbgA3CQgRpySTGN6tNdomQE96rMpV31HeBUUd?auto=format&w=500",
-      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-    ],
-    comments: [
-      {
-        id: "c1",
-        user: "JohnDoe",
-        content: "Great idea! Looking forward to the meeting.",
-        likes: 5,
-      },
-      {
-        id: "c2",
-        user: "JaneSmith",
-        content: "Can we discuss the budget as well?",
-        likes: 3,
-      },
-      {
-        id: "c3",
-        user: "MikeJohnson",
-        content: "I'll prepare a presentation for the meeting.",
-        likes: 7,
-      },
-      {
-        id: "c4",
-        user: "EmilyBrown",
-        content: "What time should we schedule the meeting?",
-        likes: 2,
-      },
-      {
-        id: "c5",
-        user: "DavidLee",
-        content:
-          "I have some concerns about the timeline. Can we address that?",
-        likes: 4,
-      },
-      {
-        id: "c6",
-        user: "SarahWilson",
-        content: "Looking forward to hearing your ideas, William!",
-        likes: 6,
-      },
-      {
-        id: "c7",
-        user: "RobertTaylor",
-        content: "Should we invite the client to join us?",
-        likes: 3,
-      },
-      {
-        id: "c8",
-        user: "LisaAnderson",
-        content: "I'll bring the latest project reports to the meeting.",
-        likes: 5,
-      },
-      {
-        id: "c9",
-        user: "KevinMoore",
-        content: "Can we also discuss resource allocation?",
-        likes: 4,
-      },
-      {
-        id: "c10",
-        user: "AmyClark",
-        content: "I have some new market research to share.",
-        likes: 7,
-      },
-      {
-        id: "c11",
-        user: "ThomasWhite",
-        content: "Let's make sure we set clear action items after the meeting.",
-        likes: 6,
-      },
-      {
-        id: "c12",
-        user: "OliviaMartin",
-        content: "I'll update the project management software before we meet.",
-        likes: 3,
-      },
-      {
-        id: "c13",
-        user: "DanielHarris",
-        content: "Can we review the risk assessment during the meeting?",
-        likes: 5,
-      },
-      {
-        id: "c14",
-        user: "SophiaLewis",
-        content: "I have some ideas for improving our workflow.",
-        likes: 4,
-      },
-      {
-        id: "c15",
-        user: "JamesWilson",
-        content: "Let's not forget to discuss the upcoming milestones.",
-        likes: 6,
-      },
-      {
-        id: "c16",
-        user: "EmmaThompson",
-        content: "I'll prepare a summary of client feedback for the meeting.",
-        likes: 7,
-      },
-      {
-        id: "c17",
-        user: "ChristopherBaker",
-        content: "Can we also touch base on the marketing strategy?",
-        likes: 3,
-      },
-      {
-        id: "c18",
-        user: "AvaRobinson",
-        content: "I have some concerns about the current testing phase.",
-        likes: 4,
-      },
-      {
-        id: "c19",
-        user: "WilliamTurner",
-        content: "Let's make sure we align on the project priorities.",
-        likes: 5,
-      },
-      {
-        id: "c20",
-        user: "GraceMitchell",
-        content: "I'll bring the latest design mockups to the meeting.",
-        likes: 6,
-      },
-
-      {
-        id: "c21",
-        user: "JaneSmith",
-        content: "Can we discuss the budget as well?",
-        likes: 5,
-      },
-    ],
-  },
-  {
-    _id: "2",
-    fullName: "William Smith",
-    title: "William Smith",
-    email: "williamsmith@example.com",
-    userName: "will_smis123",
-    content:
-      "Hi, let's have a meeting tomorrow to discuss the project. I've been reviewing the project details and have some ideas I'd like to share. It's crucial that we align on our next steps to ensure the project's success.\n\nPlease come prepared with any questions or insights you may have. Looking forward to our meeting!\n\nBest regards, William",
-    createdAt: "2023-10-22T09:00:00",
-    medias: [
-      "https://assets.lummi.ai/assets/Qma1aBRXFsApFohRJrpJczE5QXGY6HhHKz24ybuw1khbou?auto=format&w=500",
-      "https://assets.lummi.ai/assets/QmZBpAeh18DHxVNEEcJErt1UXGjZYCedSidJ6cybrDZdeS?auto=format&w=500",
-      "https://assets.lummi.ai/assets/QmbMZFEfk2qwQkkmXYncpvHapkNQF5HuTrcascJC7edpfW?auto=format&w=500",
-      "https://assets.lummi.ai/assets/QmXm6HVi3wwGy3jaCmECfoL8AULPerjQQh6abKTVhFMewK?auto=format&w=500",
-      "https://assets.lummi.ai/assets/QmRy3tpFDCbgA3CQgRpySTGN6tNdomQE96rMpV31HeBUUd?auto=format&w=500",
-      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-    ],
-    comments: [
-      {
-        id: "c3",
-        user: "AliceJohnson",
-        content: "I'll prepare a summary of our progress so far.",
-        likes: 5,
-      },
-      {
-        id: "c4",
-        user: "BobWilliams",
-        content: "Should we invite the client to this meeting?",
-        likes: 5,
-      },
-      {
-        id: "c5",
-        user: "EvaGreen",
-        content: "I have some concerns about the timeline. Let's discuss.",
-        likes: 5,
-      },
-    ],
-  },
-  {
-    _id: "3",
-    fullName: "William Smith",
-    title: "William Smith",
-    email: "williamsmith@example.com",
-    userName: "will_mits123",
-    content:
-      "Hi, let's have a meeting tomorrow to discuss the project. I've been reviewing the project details and have some ideas I'd like to share. It's crucial that we align on our next steps to ensure the project's success.\n\nPlease come prepared with any questions or insights you may have. Looking forward to our meeting!\n\nBest regards, William",
-    createdAt: "2023-10-22T09:00:00",
-    medias: [
-      "https://assets.lummi.ai/assets/Qma1aBRXFsApFohRJrpJczE5QXGY6HhHKz24ybuw1khbou?auto=format&w=500",
-      "https://assets.lummi.ai/assets/QmZBpAeh18DHxVNEEcJErt1UXGjZYCedSidJ6cybrDZdeS?auto=format&w=500",
-      "https://assets.lummi.ai/assets/QmbMZFEfk2qwQkkmXYncpvHapkNQF5HuTrcascJC7edpfW?auto=format&w=500",
-      "https://assets.lummi.ai/assets/QmXm6HVi3wwGy3jaCmECfoL8AULPerjQQh6abKTVhFMewK?auto=format&w=500",
-      "https://assets.lummi.ai/assets/QmRy3tpFDCbgA3CQgRpySTGN6tNdomQE96rMpV31HeBUUd?auto=format&w=500",
-      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-    ],
-    comments: [
-      {
-        id: "c6",
-        user: "CharlieBrown",
-        content: "I've got some new market research to share.",
-        likes: 5,
-      },
-      {
-        id: "c7",
-        user: "DianaClark",
-        content: "Can we also discuss the new feature requests?",
-        likes: 5,
-      },
-      {
-        id: "c8",
-        user: "FrankMiller",
-        content: "I'll bring the latest design mockups.",
-        likes: 5,
-      },
-      {
-        id: "c9",
-        user: "GraceLee",
-        content: "Looking forward to hearing your ideas, William!",
-        likes: 5,
-      },
-    ],
-  },
-];
 
 const useIntersectionObserver = (callback) => {
   const observerRef = useRef(null);
 
   useEffect(() => {
-    if (!("IntersectionObserver" in window)) {
-      console.error("IntersectionObserver is not supported by this browser.");
-      return;
-    }
+    if (!("IntersectionObserver" in window)) return;
 
     observerRef.current = new IntersectionObserver(callback, {
       root: null,
@@ -295,46 +51,27 @@ const useIntersectionObserver = (callback) => {
       threshold: 0.7,
     });
 
-    return () => {
-      observerRef.current.disconnect();
-    };
+    return () => observerRef.current?.disconnect();
   }, [callback]);
 
   const observe = useCallback((element) => {
-    if (element) observerRef.current.observe(element);
+    if (element) observerRef.current?.observe(element);
   }, []);
 
   const unobserve = useCallback((element) => {
-    if (element) observerRef.current.unobserve(element);
+    if (element) observerRef.current?.unobserve(element);
   }, []);
 
   return { observe, unobserve };
 };
 
-const MyComponent = () => {
+const PostFeedView = () => {
   const [posts, setPosts] = useContext(Context);
-  console.log(posts);
-
   const localUser = useSelector((state) => state.user);
   const [muted, setMuted] = useState(true);
-  const [isPlaying, setIsPlaying] = useState(true);
-  const playingStateRefs = useRef({});
+  const [deletePostId, setDeletePostId] = useState(null);
+  const videoRefs = useRef({});
 
-  const handlePlayPause = (event) => {
-    const video = event.target;
-    const id = video.getAttribute("data-id");
-    if (video.paused) {
-      video.play();
-      playingStateRefs.current[id] = true;
-      setIsPlaying(true);
-    } else {
-      video.pause();
-      playingStateRefs.current[id] = false;
-      setIsPlaying(false);
-    }
-  };
-
-  const videoRefs = useRef([]);
   const handleIntersection = useCallback((entries) => {
     entries.forEach((entry) => {
       const video = entry.target;
@@ -352,397 +89,254 @@ const MyComponent = () => {
     if (!observe || !unobserve) return;
 
     Object.values(videoRefs.current).forEach((video) => {
-      if (video) {
-        observe(video);
-      }
+      if (video) observe(video);
     });
 
     return () => {
       Object.values(videoRefs.current).forEach((video) => {
-        if (video) {
-          unobserve(video);
-        }
+        if (video) unobserve(video);
       });
     };
-  }, [observe, unobserve]);
+  }, [observe, unobserve, posts]);
 
-  const handleStopPropagation = (event) => {
-    event.stopPropagation();
+  const handleDeletePost = async (postId) => {
+    try {
+      const url = `${import.meta.env.VITE_BASE_URL}/posts/delete-post`;
+      const headers = {
+        "Content-Type": "application/json",
+        "x-access-token": localUser.token,
+      };
+      await axios.delete(url, { headers, data: { postId } });
+      setPosts((prev) => prev.filter((p) => p._id !== postId));
+    } catch (err) {
+      console.error("Error deleting post:", err);
+    }
+    setDeletePostId(null);
   };
 
-  const imageExtensions = ["jpeg", "jpg", "png", "gif"];
+  const handleStopPropagation = (event) => event.stopPropagation();
+
   const videoExtensions = ["mp4", "avi", "mkv", "mov"];
+  const isVideo = (media) => videoExtensions.some((ext) => media.toLowerCase().includes(ext));
 
-  const isVideo = (media) => {
-    return videoExtensions.some((ext) => media.toLowerCase().includes(ext));
+  const getMediaUrl = (media) => {
+    if (media.startsWith("/")) {
+      return `${import.meta.env.VITE_BASE_URL?.replace("/slash_imagine/api/v1", "")}${media}`;
+    }
+    return media;
   };
 
-  const isImage = (media) => {
-    return imageExtensions.some((ext) => media.toLowerCase().includes(ext));
-  };
+  if (!posts || posts.length === 0) {
+    return (
+      <div className="flex h-[200px] items-center justify-center rounded-md border border-dashed">
+        <p className="text-muted-foreground">No posts yet. Be the first to share something!</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col gap-2 p-4 pt-0 mb-72">
-      {posts.map((item) => (
-        <Card
-          key={item.userName + item._id}
-          className="flex flex-col h-[70vh] max-w-[60vw] rounded-lg border p-3 text-left text-sm transition-all"
-        >
-          <Dialog>
-            <DialogTrigger asChild>
-              <div className="flex flex-col h-full">
-                <CardHeader className="p-2">
-                  <div className="flex items-center">
-                    <div className="flex items-center gap-4">
-                      <Avatar>
-                        <AvatarImage
-                          src="https://github.com/shadcn.png"
-                          alt="@shadcn"
-                        />
-                        <AvatarFallback>CN</AvatarFallback>
-                      </Avatar>
-                      <div className="flex flex-col gap-0">
-                        <div className="text-sm font-medium">
-                          {item.fullName}
-                        </div>
-                        <div className="line-clamp-2 text-xs text-muted-foreground">
-                          {item.userName}
+    <>
+      <div className="flex flex-col gap-4 p-4 pt-0 mb-72">
+        {posts.map((item) => (
+          <Card key={item._id} className="flex flex-col max-w-[60vw] rounded-lg border p-3">
+            <Dialog>
+              <DialogTrigger asChild>
+                <div className="flex flex-col cursor-pointer">
+                  <CardHeader className="p-2">
+                    <div className="flex items-center">
+                      <div className="flex items-center gap-4">
+                        <Avatar>
+                          <AvatarImage
+                            src={item.author?.avatar ? getMediaUrl(item.author.avatar) : undefined}
+                          />
+                          <AvatarFallback>
+                            {item.userName?.slice(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex flex-col gap-0">
+                          <div className="text-sm font-medium">{item.fullName || item.userName}</div>
+                          <div className="text-xs text-muted-foreground">@{item.userName}</div>
                         </div>
                       </div>
-                    </div>
-                    <div
-                      className={cn(
-                        "ml-auto text-xs flex flex-row justify-between items-center"
-                      )}
-                    >
-                      {formatDistanceToNow(new Date(item.createdAt), {
-                        addSuffix: true,
-                      })}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="rounded-full ml-2"
-                        onClick={handleStopPropagation}
-                      >
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-0 flex flex-col flex-grow">
-                  <div className="px-1 py-1 text-md">{item.content}</div>
-                  {item.medias.length > 0 ? (
-                    <div
-                      onClick={handleStopPropagation}
-                      className="media-wrapper flex-grow w-full flex justify-center items-center overflow-hidden"
-                    >
-                      <Carousel className="w-full max-w-sm h-full">
-                        <CarouselContent className="!h-full">
-                          {item.medias.map((media, index) => (
-                            <CarouselItem key={item.medias[index] + item._id}>
-                              <div className="p-1 h-full">
-                                <Card className="h-full border-none shadow-none">
-                                  <CardContent
-                                    className="flex relative items-center justify-center p-0 h-full bg-contain bg-center bg-no-repeat"
-                                    style={{
-                                      backgroundImage: `url(${media})`,
-                                    }}
-                                  >
-                                    {isVideo(media) ? (
-                                      <>
-                                        <video
-                                          src={media}
-                                          ref={(el) => {
-                                            if (el) {
-                                              videoRefs.current[item._id] = el;
-                                              playingStateRefs.current[
-                                                item._id
-                                              ] = true;
-                                            }
-                                          }}
-                                          data-id={item._id}
-                                          onClick={handlePlayPause}
-                                          className="object-contain max-h-[300px] w-full h-max"
-                                          alt="media"
-                                          autoPlay
-                                          muted={muted}
-                                          loop
-                                          playsInline
-                                        />
-                                        <div
-                                          className=" absolute top-[50%] left-[50%] transform translate-x-[-50%] translate-y-[-50%] w-10 h-10 z-50 pointer-events-none opacity-75 bg-contain bg-center bg-no-repeat"
-                                          style={{
-                                            backgroundImage:
-                                              "url(/play-buttton.pngg)",
-                                          }}
-                                          hidden={
-                                            playingStateRefs.current[item._id]
-                                          }
-                                        ></div>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <div></div>
-                                        {/* <img
-                                        src={media}
-                                        className="rounded-sm object-contain h-full max-h-[300px] w-full"
-                                        alt="media"
-                                      /> */}
-                                      </>
-                                    )}
-                                    <span className="absolute bottom-2 m-1 left-[50%] transform translate-x-[-50%] text-sm px-1 text-white bg-slate-800 opacity-70 rounded-full">
-                                      {`${index + 1} of ${item.medias.length}`}
-                                    </span>
-                                    {isVideo(media) ? (
-                                      <span className="absolute m-1 bottom-0 right-0 text-sm text-muted-foreground p-1 rounded-full bg-black opacity-70">
-                                        {muted ? (
-                                          <VolumeX
-                                            className="text-white h-4 w-4"
-                                            onClick={() => setMuted(!muted)}
-                                          />
-                                        ) : (
-                                          <Volume2
-                                            className="text-white h-4 w-4"
-                                            onClick={() => setMuted(!muted)}
-                                          />
-                                        )}
-                                      </span>
-                                    ) : null}
-                                  </CardContent>
-                                </Card>
-                              </div>
-                            </CarouselItem>
-                          ))}
-                        </CarouselContent>
-                        <CarouselPrevious />
-                        <CarouselNext />
-                      </Carousel>
-                    </div>
-                  ) : null}
-                </CardContent>
-                <CardFooter className="flex flex-col w-full justify-between items-center p-0 mt-auto">
-                  <Separator className="w-full mb-1" />
-                  <div className="flex flex-row w-full justify-stretch items-center">
-                    <div className="flex-grow flex justify-center items-center border-r-2 border-[#e7e5e4]">
-                      <div
-                        size="icon"
-                        className="rounded-full ml-2"
-                        onClick={(event) => {
-                          handleStopPropagation(event);
-                        }}
-                      >
-                        <HeartButton
-                          initialLiked={item.likedByUsers.includes(
-                            localUser.userName
-                          )}
-                          postId={item._id}
-                        />
+                      <div className="ml-auto text-xs flex items-center gap-2">
+                        {item.createdAt && formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}
+                        {item.userName === localUser.userName && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild onClick={handleStopPropagation}>
+                              <Button variant="ghost" size="icon" className="rounded-full h-8 w-8">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                              <DropdownMenuItem
+                                className="text-destructive"
+                                onClick={(e) => {
+                                  handleStopPropagation(e);
+                                  setDeletePostId(item._id);
+                                }}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete Post
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
                       </div>
                     </div>
-                    <div className="flex-grow flex justify-center items-center border-r-2 border-[#e7e5e4]">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="rounded-full ml-2"
-                      >
-                        <Subtitles className="h-8 w-8 text-muted-foreground" />
-                      </Button>
-                    </div>
-                    <div className="flex-grow flex justify-center items-center">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="rounded-full ml-2"
-                        onClick={handleStopPropagation}
-                      >
-                        {/* <Share2 className="h-6 w-6 text-muted-foreground" /> */}
-                        <ShareButton postId={item._id} />
-                      </Button>
-                    </div>
-                  </div>
-                </CardFooter>
-              </div>
-            </DialogTrigger>
-            <DialogContent className="flex justify-center items-center">
-              <Card>
-                <div className="left h-[70vh] w-[40vw] p-1 rounded-xl">
-                  <div className="flex flex-col h-full">
-                    <DialogHeader className="p-2 w-[40vw]">
-                      <DialogTitle>
-                        <div className="flex items-center">
-                          <div className="flex items-center gap-4">
-                            <Avatar>
-                              <AvatarImage
-                                src="https://github.com/shadcn.png"
-                                alt="@shadcn"
-                              />
-                              <AvatarFallback>CN</AvatarFallback>
-                            </Avatar>
-                            <div className="flex flex-col gap-0">
-                              <div className="font-semibold">
-                                {item.fullName}
-                              </div>
-                              <div className="line-clamp-2 text-xs text-muted-foreground">
-                                {item.userName}
-                              </div>
-                            </div>
-                          </div>
-                          <div
-                            className={cn(
-                              "ml-auto text-xs flex flex-row justify-between items-center"
-                            )}
-                          >
-                            {formatDistanceToNow(new Date(item.createdAt), {
-                              addSuffix: true,
-                            })}
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="rounded-full ml-2"
-                              onClick={handleStopPropagation}
-                            >
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </DialogTitle>
-                      <DialogDescription className="hidden">
-                        .
-                      </DialogDescription>
-                    </DialogHeader>
-                    {item.medias.length > 0 ? (
-                      <div className="media-wrapper flex-grow w-full flex justify-center items-center overflow-hidden">
-                        <Carousel className="w-full max-w-sm h-full">
-                          <CarouselContent className="!h-full">
+                  </CardHeader>
+                  
+                  <CardContent className="p-2">
+                    {item.title && <h3 className="font-semibold mb-2">{item.title}</h3>}
+                    <p className="text-sm whitespace-pre-wrap">{item.content}</p>
+                    
+                    {item.medias && item.medias.length > 0 && (
+                      <div onClick={handleStopPropagation} className="mt-4 flex justify-center">
+                        <Carousel className="w-full max-w-sm">
+                          <CarouselContent>
                             {item.medias.map((media, index) => (
-                              <CarouselItem key={item.medias[index] + item._id}>
-                                <div className="p-1 h-full">
-                                  <Card className="h-full border-none shadow-none">
-                                    <CardContent
-                                      className="flex relative items-center justify-center p-0 h-full bg-contain bg-center bg-no-repeat"
-                                      style={{
-                                        backgroundImage: `url(${media})`,
-                                      }}
-                                    >
-                                      {isVideo(media) ? (
-                                        <>
-                                          <video
-                                            src={media}
-                                            ref={(el) => {
-                                              if (el) {
-                                                videoRefs.current[item._id] =
-                                                  el;
-                                              }
-                                            }}
-                                            // Add onclick propert to toogle play pause
-                                            onClick={handlePlayPause}
-                                            className="object-contain max-h-[300px] w-full h-max"
-                                            alt="media"
-                                            autoPlay
-                                            muted={muted}
-                                            loop
-                                            playsInline
-                                          />
-                                          <div
-                                            className=" absolute top-[50%] left-[50%] transform translate-x-[-50%] translate-y-[-50%] w-10 h-10 z-50 pointer-events-none opacity-75 bg-contain bg-center bg-no-repeat"
-                                            style={{
-                                              backgroundImage:
-                                                "url(/play-buttton.pngg)",
-                                            }}
-                                            hidden={isPlaying}
-                                          ></div>
-                                        </>
-                                      ) : (
-                                        <>
-                                          <div></div>
-                                          {/* <img
-                                        src={media}
-                                        className="rounded-sm object-contain h-full max-h-[300px] w-full"
-                                        alt="media"
-                                      /> */}
-                                        </>
-                                      )}
-                                      <span className="absolute bottom-2 m-1 left-[50%] transform translate-x-[-50%] text-sm px-1 text-white bg-slate-800 opacity-70 rounded-full">
-                                        {`${index + 1} of ${
-                                          item.medias.length
-                                        }`}
-                                      </span>
-                                      {isVideo(media) ? (
-                                        <span className="absolute m-1 bottom-0 right-0 text-sm text-muted-foreground p-1 rounded-full bg-black opacity-70">
-                                          {muted ? (
-                                            <VolumeX
-                                              className="text-white h-4 w-4"
-                                              onClick={() => setMuted(!muted)}
-                                            />
-                                          ) : (
-                                            <Volume2
-                                              className="text-white h-4 w-4"
-                                              onClick={() => setMuted(!muted)}
-                                            />
-                                          )}
-                                        </span>
-                                      ) : null}
-                                    </CardContent>
-                                  </Card>
+                              <CarouselItem key={index}>
+                                <div className="p-1">
+                                  {isVideo(media) ? (
+                                    <video
+                                      src={getMediaUrl(media)}
+                                      ref={(el) => { if (el) videoRefs.current[`${item._id}-${index}`] = el; }}
+                                      className="w-full rounded-lg max-h-[300px] object-contain"
+                                      muted={muted}
+                                      loop
+                                      playsInline
+                                      onClick={() => setMuted(!muted)}
+                                    />
+                                  ) : (
+                                    <img
+                                      src={getMediaUrl(media)}
+                                      alt={`Media ${index + 1}`}
+                                      className="w-full rounded-lg max-h-[300px] object-contain"
+                                    />
+                                  )}
                                 </div>
                               </CarouselItem>
                             ))}
                           </CarouselContent>
-                          <CarouselPrevious />
-                          <CarouselNext />
+                          {item.medias.length > 1 && (
+                            <>
+                              <CarouselPrevious />
+                              <CarouselNext />
+                            </>
+                          )}
                         </Carousel>
                       </div>
-                    ) : null}
-                    <DialogFooter className="flex-row sm:justify-start gap-4 items-center">
-                      {/* <HeartButton
-                        initialLiked={item.likedByUsers.includes(
-                          localUser.userName
-                        )}
-                        postId={item._id}
-                      /> */}
-                      <span className="likesCount !ml-[0px] p-2">{`${item.likes} likes`}</span>
-                      {/* <Subtitles className="h-8 w-8 text-muted-foreground" />
-                      <span className="likesCount !ml-[5px]">3.8k</span> */}
-                      <ShareButton postId={item._id} />
-                    </DialogFooter>
+                    )}
+                  </CardContent>
+                  
+                  <CardFooter className="p-2 pt-0">
+                    <Separator className="mb-2" />
+                    <div className="flex w-full justify-around items-center">
+                      <div onClick={handleStopPropagation}>
+                        <HeartButton
+                          initialLiked={item.likedByUsers?.includes(localUser.userName)}
+                          postId={item._id}
+                        />
+                      </div>
+                      <div className="flex items-center gap-1 text-muted-foreground">
+                        <MessageCircle className="h-5 w-5" />
+                        <span className="text-sm">{item.comments?.length || 0}</span>
+                      </div>
+                      <div onClick={handleStopPropagation}>
+                        <ShareButton postId={item._id} />
+                      </div>
+                    </div>
+                  </CardFooter>
+                </div>
+              </DialogTrigger>
+              
+              <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-4">
+                    <Avatar>
+                      <AvatarImage src={item.author?.avatar ? getMediaUrl(item.author.avatar) : undefined} />
+                      <AvatarFallback>{item.userName?.slice(0, 2).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <div className="font-semibold">{item.fullName || item.userName}</div>
+                      <div className="text-xs text-muted-foreground font-normal">@{item.userName}</div>
+                    </div>
+                  </DialogTitle>
+                  <DialogDescription className="sr-only">Post details</DialogDescription>
+                </DialogHeader>
+                
+                <div className="space-y-4">
+                  {item.title && <h2 className="text-xl font-bold">{item.title}</h2>}
+                  <p className="whitespace-pre-wrap">{item.content}</p>
+                  
+                  {item.medias && item.medias.length > 0 && (
+                    <Carousel className="w-full">
+                      <CarouselContent>
+                        {item.medias.map((media, index) => (
+                          <CarouselItem key={index}>
+                            {isVideo(media) ? (
+                              <video
+                                src={getMediaUrl(media)}
+                                controls
+                                className="w-full rounded-lg max-h-[400px] object-contain"
+                              />
+                            ) : (
+                              <img
+                                src={getMediaUrl(media)}
+                                alt={`Media ${index + 1}`}
+                                className="w-full rounded-lg max-h-[400px] object-contain"
+                              />
+                            )}
+                          </CarouselItem>
+                        ))}
+                      </CarouselContent>
+                      {item.medias.length > 1 && (
+                        <>
+                          <CarouselPrevious />
+                          <CarouselNext />
+                        </>
+                      )}
+                    </Carousel>
+                  )}
+                  
+                  <div className="flex gap-4 text-sm text-muted-foreground">
+                    <span>{item.likes || 0} likes</span>
+                    <span>{item.comments?.length || 0} comments</span>
+                  </div>
+                  
+                  <Separator />
+                  
+                  <div>
+                    <h3 className="font-semibold mb-4">Comments</h3>
+                    <PostComment item={item} />
                   </div>
                 </div>
-              </Card>
+              </DialogContent>
+            </Dialog>
+          </Card>
+        ))}
+      </div>
 
-              <div className="right h-[70vh] flex flex-col gap-4 w-[40vw]">
-                <Card className="w-full max-h-[30vh]">
-                  <CardHeader className="p-4">
-                    <CardTitle>Description</CardTitle>
-                    <Separator />
-                    <CardDescription className="w-full overflow-scroll scrollbar-hide max-h-[100px]">
-                      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                      {`${item.content}`}
-                    </CardDescription>
-                  </CardHeader>
-                </Card>
-                <Card className="w-full h-full">
-                  <CardHeader className="px-4 pt-4 pb-3">
-                    <div className="">
-                      <CardTitle>
-                        Comments{" "}
-                        <span className="text-md ml-2 text-gray-500 font-light">
-                          {item.comments.length}
-                        </span>{" "}
-                      </CardTitle>
-                      <Separator />
-                    </div>
-                  </CardHeader>
-                  <CardContent className="relative flex flex-col justify-stretch items-center gap-4 grow-1">
-                    <PostComment item={item} />
-                  </CardContent>
-                </Card>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </Card>
-      ))}
-    </div>
+      <AlertDialog open={!!deletePostId} onOpenChange={() => setDeletePostId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Post</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this post? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => handleDeletePost(deletePostId)}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 };
 
-export default MyComponent;
+export default PostFeedView;

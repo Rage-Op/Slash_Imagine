@@ -41,8 +41,12 @@ mongoose
 
 // INITIALIZE ADMIN USER
 async function init() {
+  const adminUsername = process.env.ADMIN_USERNAME || "admin";
+  const adminPassword = process.env.ADMIN_PASSWORD || "Admin@123456";
+  const adminEmail = process.env.ADMIN_EMAIL || "admin@slashimagine.local";
+  
   try {
-    let user = await User_Model.findOne({ userName: "rage_op" });
+    let user = await User_Model.findOne({ userName: adminUsername });
 
     if (user) {
       console.log("Admin user already exists");
@@ -53,22 +57,21 @@ async function init() {
   }
   try {
     const user = await User_Model.create({
-      firstName: "pravin",
-      lastName: "maurya",
-      userName: "rage_op",
-      dob: "2006-11-18",
-      contactNumber: "+977 9800000000",
-      country: "Nepal",
-      password: bcrypt.hashSync("Pravin@11223344", 8),
-      email: "pravinyt1122334455@gmail.com",
+      firstName: "Admin",
+      lastName: "User",
+      userName: adminUsername,
+      dob: "2000-01-01",
+      contactNumber: "+1 0000000000",
+      country: "United States",
+      password: bcrypt.hashSync(adminPassword, 8),
+      email: adminEmail,
       role: "Admin",
       membership: "Premium",
     });
-    // save the user to the database
     await user.save();
-    console.log("Admin created");
+    console.log("Admin user created");
   } catch (err) {
-    console.log("error creating admin user", err);
+    console.log("Error creating admin user:", err.message);
   }
 }
 // INITIALIZE ADMIN USER
