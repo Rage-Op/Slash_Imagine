@@ -155,7 +155,7 @@ const PostFeedView = () => {
     <>
       <div className="flex flex-col gap-4 p-4 pt-0 mb-72">
         {posts.map((item) => (
-          <Card key={item._id} className="flex flex-col max-w-[60vw] rounded-lg border p-3 overflow-hidden">
+          <Card key={item._id} className="flex flex-col max-w-[60vw] rounded-lg border p-3">
             <Dialog>
               <DialogTrigger asChild>
                 <div className="flex flex-col cursor-pointer">
@@ -243,33 +243,34 @@ const PostFeedView = () => {
                     )}
                   </CardContent>
                   
-                  <CardFooter className="p-2 pt-0">
-                    <Separator className="mb-2" />
-                    <div className="flex w-full justify-around items-center overflow-hidden">
-                      <div onClick={handleStopPropagation}>
+                  <CardFooter className="p-2 pt-0 flex flex-col">
+                    <Separator className="mb-2 w-full" />
+                    <div className="flex w-full justify-between items-center gap-2 px-2">
+                      <div onClick={handleStopPropagation} className="flex items-center gap-1">
                         <HeartButton
                           initialLiked={item.likedByUsers?.includes(localUser.userName)}
                           postId={item._id}
+                          likeCount={item.likes || 0}
                         />
                       </div>
                       <Button 
                         variant="ghost" 
                         size="sm" 
-                        className="flex items-center gap-1 text-muted-foreground"
-                        aria-label={`${item.comments?.length || 0} comments`}
+                        className="flex items-center gap-1 text-muted-foreground h-8 px-2"
+                        aria-label={`${item.comments?.length || 0} ${pluralize(item.comments?.length || 0, 'comment', 'comments')}`}
                       >
-                        <MessageCircle className="h-5 w-5" />
-                        <span className="text-sm">{item.comments?.length || 0}</span>
+                        <MessageCircle className="h-4 w-4" />
+                        <span className="text-sm">{item.comments?.length || 0} {pluralize(item.comments?.length || 0, 'comment', 'comments')}</span>
                       </Button>
-                      <div onClick={handleStopPropagation}>
-                        <ShareButton postId={item._id} />
+                      <div onClick={handleStopPropagation} className="flex items-center gap-1">
+                        <ShareButton postId={item._id} shareCount={item.shares || 0} />
                       </div>
                     </div>
                   </CardFooter>
                 </div>
               </DialogTrigger>
               
-              <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
+              <DialogContent className="max-w-4xl w-[90vw] max-h-[90vh] overflow-y-auto overflow-x-hidden">
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-4">
                     <Avatar>

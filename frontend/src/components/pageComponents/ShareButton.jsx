@@ -16,8 +16,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 
-export const ShareButton = ({ postId }) => {
+const pluralize = (count, singular, plural) => count === 1 ? singular : plural;
+
+export const ShareButton = ({ postId, shareCount = 0 }) => {
   const [copied, setCopied] = useState(false);
+  const [count, setCount] = useState(shareCount);
   const { toast } = useToast();
   const [currentUrl, setCurrentUrl] = useState(
     typeof window !== "undefined"
@@ -42,6 +45,7 @@ export const ShareButton = ({ postId }) => {
       
       try {
         await api.post(`/posts/share/${postId}`, {});
+        setCount((c) => c + 1);
       } catch {
         // Silently fail - share count increment is optional
       }
@@ -63,10 +67,11 @@ export const ShareButton = ({ postId }) => {
         <Button 
           variant="ghost" 
           size="sm" 
-          className="text-muted-foreground hover:text-foreground"
+          className="text-muted-foreground hover:text-foreground flex items-center gap-1 h-8 px-2"
           aria-label="Share post"
         >
-          <Share2 className="h-5 w-5" />
+          <Share2 className="h-4 w-4" />
+          <span className="text-sm">{count} {pluralize(count, 'share', 'shares')}</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">

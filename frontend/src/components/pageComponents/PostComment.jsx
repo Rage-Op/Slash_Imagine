@@ -95,8 +95,8 @@ export const PostComment = ({ item }) => {
   };
 
   return (
-    <div className="w-full min-w-[300px]">
-      <ScrollArea className="h-56 w-full">
+    <div className="w-full">
+      <ScrollArea className="h-56 w-full overflow-x-hidden">
         {item.comments.map((comment) => (
           <div key={comment._id}>
             <Separator className="my-2" />

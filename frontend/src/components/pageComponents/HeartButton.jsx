@@ -3,9 +3,12 @@ import { Context } from "@/pages/Home";
 import { useSelector } from "react-redux";
 import api from "@/lib/axios";
 
-export const HeartButton = ({ postId, initialLiked }) => {
+const pluralize = (count, singular, plural) => count === 1 ? singular : plural;
+
+export const HeartButton = ({ postId, initialLiked, likeCount = 0 }) => {
   const [isChecked, setIsChecked] = useState(initialLiked);
   const [isLoading, setIsLoading] = useState(false);
+  const [count, setCount] = useState(likeCount);
   const localUser = useSelector((state) => state.user);
   const [, setPosts] = useContext(Context);
   
@@ -20,12 +23,13 @@ export const HeartButton = ({ postId, initialLiked }) => {
         const res = await api.post("/posts/remove-Like", { postId });
         if (res.status === 200) {
           setIsChecked(false);
+          setCount((c) => Math.max(0, c - 1));
           setPosts((prevPosts) =>
             prevPosts.map((p) =>
               p._id === postId
                 ? {
                     ...p,
-                    likes: p.likes - 1,
+                    likes: Math.max(0, p.likes - 1),
                     likedByUsers: p.likedByUsers.filter((u) => u !== localUser.userName),
                   }
                 : p
@@ -36,6 +40,7 @@ export const HeartButton = ({ postId, initialLiked }) => {
         const res = await api.post("/posts/add-Like", { postId });
         if (res.status === 200) {
           setIsChecked(true);
+          setCount((c) => c + 1);
           setPosts((prevPosts) =>
             prevPosts.map((p) =>
               p._id === postId
@@ -59,13 +64,13 @@ export const HeartButton = ({ postId, initialLiked }) => {
   return (
     <button 
       type="button"
-      className="LikeContainer"
+      className="LikeContainer flex items-center gap-1"
       onClick={handleChange}
       disabled={isLoading}
       aria-label={isChecked ? "Unlike post" : "Like post"}
       aria-pressed={isChecked}
     >
-      <div className={`checkmark transform scale-[0.6] ${isChecked ? 'checked' : ''}`}>
+      <div className={`checkmark transform scale-[0.5] ${isChecked ? 'checked' : ''}`}>
         <svg viewBox="0 0 256 256" role="img" aria-hidden="true">
           <rect fill="none" height="256" width="256"></rect>
           <path
@@ -76,6 +81,7 @@ export const HeartButton = ({ postId, initialLiked }) => {
           ></path>
         </svg>
       </div>
+      <span className="text-sm text-muted-foreground">{count} {pluralize(count, 'like', 'likes')}</span>
     </button>
   );
 };
