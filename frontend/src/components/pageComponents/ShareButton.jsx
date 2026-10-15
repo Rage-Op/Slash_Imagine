@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { useSelector } from "react-redux";
-import axios from "axios";
+import { useState, useEffect } from "react";
+import api from "@/lib/axios";
 import { Share2, Clipboard, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,7 +19,6 @@ import { useToast } from "@/components/ui/use-toast";
 export const ShareButton = ({ postId }) => {
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
-  const localUser = useSelector((state) => state.user);
   const [currentUrl, setCurrentUrl] = useState(
     typeof window !== "undefined"
       ? `${window.location.origin}/posts/${postId}`
@@ -43,15 +41,7 @@ export const ShareButton = ({ postId }) => {
       });
       
       try {
-        const headers = {
-          "Content-Type": "application/json",
-          "x-access-token": localUser.token,
-        };
-        await axios.post(
-          `${import.meta.env.VITE_BASE_URL}/posts/share/${postId}`,
-          {},
-          { headers }
-        );
+        await api.post(`/posts/share/${postId}`, {});
       } catch {
         // Silently fail - share count increment is optional
       }

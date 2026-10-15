@@ -1,7 +1,6 @@
-import React, { useState } from "react";
-import { useSelector } from "react-redux";
-import axios from "axios";
+import { useState } from "react";
 import { PlusCircledIcon } from "@radix-ui/react-icons";
+import api from "@/lib/axios";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,7 +18,6 @@ import { useToast } from "@/components/ui/use-toast";
 import { ImagePlus, X } from "lucide-react";
 
 export const AddPostDialog = ({ open, onOpenChange, onPostCreated }) => {
-  const localUser = useSelector((state) => state.user);
   const { toast } = useToast();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -73,12 +71,7 @@ export const AddPostDialog = ({ open, onOpenChange, onPostCreated }) => {
         formData.append("media", file);
       });
 
-      const url = `${import.meta.env.VITE_BASE_URL}/posts/add-post`;
-      const headers = {
-        "x-access-token": localUser.token,
-      };
-
-      await axios.post(url, formData, { headers });
+      await api.post("/posts/add-post", formData);
 
       toast({
         title: "Success",

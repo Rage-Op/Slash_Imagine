@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
 import { useForm } from "react-hook-form";
@@ -10,7 +10,6 @@ import { CalendarIcon } from "@radix-ui/react-icons";
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -24,7 +23,7 @@ import {
 } from "@/components/ui/popover";
 import { useToast } from "@/components/ui/use-toast";
 import { useSelector } from "react-redux";
-import axios from "axios";
+import api from "@/lib/axios";
 import { Separator } from "@/components/ui/separator";
 
 const passwordSchema = z.object({
@@ -54,7 +53,6 @@ const dobSchema = z.object({
 export const AccountForm = () => {
   const localUser = useSelector((state) => state.user);
   const { toast } = useToast();
-  const [userInfo, setUserInfo] = useState({});
 
   const passwordForm = useForm({
     resolver: zodResolver(passwordSchema),
@@ -79,13 +77,7 @@ export const AccountForm = () => {
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const url = `${import.meta.env.VITE_BASE_URL}/user/get-user`;
-        const headers = {
-          "Content-Type": "application/json",
-          "x-access-token": localUser.token,
-        };
-        const res = await axios.post(url, {}, { headers });
-        setUserInfo(res.data);
+        const res = await api.post("/user/get-user", {});
         emailForm.setValue("newEmail", res.data.email || "");
         phoneForm.setValue("newContactNumber", res.data.contactNumber || "");
         if (res.data.dob) {
@@ -96,20 +88,14 @@ export const AccountForm = () => {
       }
     };
     if (localUser?.token) fetchUser();
-  }, [localUser?.token]);
-
-  const headers = {
-    "Content-Type": "application/json",
-    "x-access-token": localUser.token,
-  };
+  }, [localUser?.token, emailForm, phoneForm, dobForm]);
 
   const onPasswordSubmit = async (data) => {
     try {
-      await axios.post(
-        `${import.meta.env.VITE_BASE_URL}/auth/change-password`,
-        { password: data.currentPassword, newPassword: data.newPassword },
-        { headers }
-      );
+      await api.post("/auth/change-password", {
+        password: data.currentPassword,
+        newPassword: data.newPassword,
+      });
       toast({ title: "Success", description: "Password updated successfully" });
       passwordForm.reset();
     } catch (err) {
@@ -123,11 +109,10 @@ export const AccountForm = () => {
 
   const onEmailSubmit = async (data) => {
     try {
-      await axios.post(
-        `${import.meta.env.VITE_BASE_URL}/auth/change-email`,
-        { newEmail: data.newEmail, password: data.password },
-        { headers }
-      );
+      await api.post("/auth/change-email", {
+        newEmail: data.newEmail,
+        password: data.password,
+      });
       toast({ title: "Success", description: "Email updated successfully" });
       emailForm.setValue("password", "");
     } catch (err) {
@@ -141,11 +126,10 @@ export const AccountForm = () => {
 
   const onPhoneSubmit = async (data) => {
     try {
-      await axios.post(
-        `${import.meta.env.VITE_BASE_URL}/auth/change-contact-number`,
-        { newContactNumber: data.newContactNumber, password: data.password },
-        { headers }
-      );
+      await api.post("/auth/change-contact-number", {
+        newContactNumber: data.newContactNumber,
+        password: data.password,
+      });
       toast({ title: "Success", description: "Phone number updated successfully" });
       phoneForm.setValue("password", "");
     } catch (err) {
@@ -159,11 +143,10 @@ export const AccountForm = () => {
 
   const onDobSubmit = async (data) => {
     try {
-      await axios.post(
-        `${import.meta.env.VITE_BASE_URL}/auth/change-dob`,
-        { newDob: format(data.newDob, "yyyy-MM-dd"), password: data.password },
-        { headers }
-      );
+      await api.post("/auth/change-dob", {
+        newDob: format(data.newDob, "yyyy-MM-dd"),
+        password: data.password,
+      });
       toast({ title: "Success", description: "Date of birth updated successfully" });
       dobForm.setValue("password", "");
     } catch (err) {

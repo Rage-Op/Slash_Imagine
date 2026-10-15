@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -9,7 +9,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { Check, ChevronsUpDown } from "lucide-react";
+import { Check, ChevronsUpDown, Calendar as CalendarIcon } from "lucide-react";
 import {
   Form,
   FormControl,
@@ -36,14 +36,13 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Calendar as CalendarIcon } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { signupSchema } from "./../../schemas/signup_schema";
-import axios from "axios";
-import { useSelector, useDispatch } from "react-redux";
-import { setLogin } from "./../../state/state";
+import { signupSchema } from "@/schemas/signup_schema";
+import api from "@/lib/axios";
+import { useDispatch } from "react-redux";
+import { setLogin } from "@/state/state";
 
 const countries = [
   { label: "Afghanistan", value: "Afghanistan" },
@@ -272,7 +271,6 @@ export const Signupform = () => {
   const onSubmitSignup = async (data) => {
     setPending(true);
     console.log("submitted", data);
-    const url = `${import.meta.env.VITE_BASE_URL}/auth/signup`;
     const body = {
       firstName: data.firstName,
       lastName: data.lastName,
@@ -285,7 +283,7 @@ export const Signupform = () => {
     };
 
     try {
-      const res = await axios.post(url, body);
+      const res = await api.post("/auth/signup", body);
       const user = {
         userName: res.data.userName,
         firstName: res.data.firstName,

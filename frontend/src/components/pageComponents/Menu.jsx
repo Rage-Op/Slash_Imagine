@@ -12,7 +12,7 @@ import { Settings, User, LogOut, Shield } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { setLogout } from "@/state/state";
 import { useState, useEffect } from "react";
-import axios from "axios";
+import api from "@/lib/axios";
 
 export function Menu() {
   const navigate = useNavigate();
@@ -23,23 +23,14 @@ export function Menu() {
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        const url = `${import.meta.env.VITE_BASE_URL}/user/get-user`;
-        const headers = {
-          "Content-Type": "application/json",
-          "x-access-token": localUser.token,
-        };
-        const res = await axios.post(url, {}, { headers });
+        const res = await api.post("/user/get-user", {});
         setUserData(res.data);
       } catch (err) {
         console.error("Error fetching user data:", err);
-        if (err.response?.status === 401) {
-          dispatch(setLogout());
-          navigate("/login");
-        }
       }
     };
     if (localUser?.token) fetchUserData();
-  }, [localUser?.token, dispatch, navigate]);
+  }, [localUser?.token]);
 
   const handleLogOut = () => {
     dispatch(setLogout());

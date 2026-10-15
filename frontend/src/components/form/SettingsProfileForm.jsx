@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from "react";
-import axios from "axios";
+import { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { useNavigate } from "react-router-dom";
+import api from "@/lib/axios";
 import {
   Popover,
   PopoverContent,
@@ -31,7 +30,7 @@ import { Check, ChevronsUpDown, Upload, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { useSelector, useDispatch } from "react-redux";
-import { setLogin, setLogout } from "@/state/state";
+import { setLogin } from "@/state/state";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const countries = [
@@ -56,7 +55,6 @@ const profileFormSchema = z.object({
 export function SettingsProfileForm() {
   const localUser = useSelector((state) => state.user);
   const dispatch = useDispatch();
-  const navigate = useNavigate();
   const { toast } = useToast();
   const [avatar, setAvatar] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState(null);
@@ -76,12 +74,7 @@ export function SettingsProfileForm() {
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const url = `${import.meta.env.VITE_BASE_URL}/user/get-user`;
-        const headers = {
-          "Content-Type": "application/json",
-          "x-access-token": localUser.token,
-        };
-        const res = await axios.post(url, {}, { headers });
+        const res = await api.post("/user/get-user", {});
         const userData = {
           firstName: res.data.firstName || "",
           lastName: res.data.lastName || "",
@@ -97,14 +90,10 @@ export function SettingsProfileForm() {
         }
       } catch (err) {
         console.error("Error fetching user:", err);
-        if (err.response?.status === 401) {
-          dispatch(setLogout());
-          navigate("/login");
-        }
       }
     };
     if (localUser?.token) fetchUser();
-  }, [localUser?.token, dispatch, navigate]);
+  }, [localUser?.token, form]);
 
   const handleAvatarChange = (e) => {
     const file = e.target.files?.[0];
@@ -127,42 +116,25 @@ export function SettingsProfileForm() {
     
     setIsSubmitting(true);
     try {
-      const headers = {
-        "Content-Type": "application/json",
-        "x-access-token": localUser.token,
-      };
-
       // Upload avatar if selected
       if (avatar) {
         const formData = new FormData();
         formData.append("avatar", avatar);
-        await axios.post(
-          `${import.meta.env.VITE_BASE_URL}/user/change-avatar`,
-          formData,
-          { headers: { "x-access-token": localUser.token } }
-        );
+        await api.post("/user/change-avatar", formData);
       }
 
       // Update name if changed (requires password)
       if (nameChanged) {
-        await axios.post(
-          `${import.meta.env.VITE_BASE_URL}/auth/change-name`,
-          {
-            newFirstName: data.firstName,
-            newLastName: data.lastName,
-            password: data.currentPassword,
-          },
-          { headers }
-        );
+        await api.post("/auth/change-name", {
+          newFirstName: data.firstName,
+          newLastName: data.lastName,
+          password: data.currentPassword,
+        });
       }
 
       // Update country if changed (no password required)
       if (countryChanged) {
-        await axios.post(
-          `${import.meta.env.VITE_BASE_URL}/user/change-country`,
-          { newCountry: data.country },
-          { headers }
-        );
+        await api.post("/user/change-country", { newCountry: data.country });
       }
 
       // Update local state
@@ -178,11 +150,6 @@ export function SettingsProfileForm() {
       toast({ title: "Success", description: "Profile updated successfully" });
     } catch (err) {
       console.error("Error updating profile:", err);
-      if (err.response?.status === 401) {
-        dispatch(setLogout());
-        navigate("/login");
-        return;
-      }
       toast({
         title: "Error",
         description: err.response?.data?.message || "Failed to update profile",

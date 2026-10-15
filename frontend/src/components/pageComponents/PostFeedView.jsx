@@ -1,12 +1,10 @@
-import React, { useState, useEffect, useRef, useCallback, useContext } from "react";
+import { useState, useEffect, useRef, useCallback, useContext } from "react";
 import { Context } from "@/pages/Home";
-import { useSelector, useDispatch } from "react-redux";
-import { setLogout } from "@/state/state";
-import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import { useSelector } from "react-redux";
 import { formatDistanceToNow } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MoreVertical, MessageCircle, Trash2, Loader2 } from "lucide-react";
+import api from "@/lib/axios";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import {
@@ -68,14 +66,10 @@ const useIntersectionObserver = (callback) => {
 };
 
 const PostFeedView = () => {
-  const [posts, setPosts] = useContext(Context);
+  const [posts, setPosts, { loadMore, hasMore }] = useContext(Context);
   const localUser = useSelector((state) => state.user);
-  const dispatch = useDispatch();
-  const navigate = useNavigate();
   const [muted, setMuted] = useState(true);
   const [deletePostId, setDeletePostId] = useState(null);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const videoRefs = useRef({});
 
@@ -108,19 +102,10 @@ const PostFeedView = () => {
 
   const handleDeletePost = async (postId) => {
     try {
-      const url = `${import.meta.env.VITE_BASE_URL}/posts/delete-post`;
-      const headers = {
-        "Content-Type": "application/json",
-        "x-access-token": localUser.token,
-      };
-      await axios.delete(url, { headers, data: { postId } });
+      await api.delete("/posts/delete-post", { data: { postId } });
       setPosts((prev) => prev.filter((p) => p._id !== postId));
     } catch (err) {
       console.error("Error deleting post:", err);
-      if (err.response?.status === 401) {
-        dispatch(setLogout());
-        navigate("/login");
-      }
     }
     setDeletePostId(null);
   };
@@ -129,35 +114,9 @@ const PostFeedView = () => {
     if (loadingMore || !hasMore) return;
     setLoadingMore(true);
     try {
-      const nextPage = page + 1;
-      const url = `${import.meta.env.VITE_BASE_URL}/user/get-home-feed?page=${nextPage}&limit=20`;
-      const headers = {
-        "Content-Type": "application/json",
-        "x-access-token": localUser.token,
-      };
-      const res = await axios.get(url, { headers });
-      const newPosts = (res.data.posts || []).map((post) => ({
-        ...post,
-        fullName: post.author?.fullName || 
-          `${post.author?.firstName || ''} ${post.author?.lastName || ''}`.trim() ||
-          post.userName,
-      }));
-      
-      if (newPosts.length === 0) {
-        setHasMore(false);
-      } else {
-        setPosts((prev) => [...prev, ...newPosts]);
-        setPage(nextPage);
-        if (res.data.pagination && nextPage >= res.data.pagination.pages) {
-          setHasMore(false);
-        }
-      }
+      await loadMore();
     } catch (err) {
       console.error("Error loading more posts:", err);
-      if (err.response?.status === 401) {
-        dispatch(setLogout());
-        navigate("/login");
-      }
     }
     setLoadingMore(false);
   };

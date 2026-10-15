@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useSelector, useDispatch } from "react-redux";
-import { setLogout } from "@/state/state";
-import axios from "axios";
+import { useSelector } from "react-redux";
+import api from "@/lib/axios";
 import { formatDistanceToNow } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -22,7 +21,6 @@ const pluralize = (count, singular, plural) => count === 1 ? singular : plural;
 const PostPage = () => {
   const { postId } = useParams();
   const navigate = useNavigate();
-  const dispatch = useDispatch();
   const [post, setPost] = useState(null);
   const [commentAuthors, setCommentAuthors] = useState({});
   const [loading, setLoading] = useState(true);
@@ -32,12 +30,7 @@ const PostPage = () => {
   useEffect(() => {
     const fetchPost = async () => {
       try {
-        const url = `${import.meta.env.VITE_BASE_URL}/posts/get-post/${postId}`;
-        const headers = {
-          "Content-Type": "application/json",
-          "x-access-token": localUser?.token || "",
-        };
-        const res = await axios.get(url, { headers });
+        const res = await api.get(`/posts/get-post/${postId}`);
         setPost(res.data);
         
         // Fetch comment authors
@@ -46,11 +39,7 @@ const PostPage = () => {
           const authorData = {};
           for (const userName of userNames) {
             try {
-              const authorRes = await axios.post(
-                `${import.meta.env.VITE_BASE_URL}/user/get-user`,
-                { userName },
-                { headers }
-              );
+              const authorRes = await api.post("/user/get-user", { userName });
               authorData[userName] = {
                 firstName: authorRes.data.firstName,
                 lastName: authorRes.data.lastName,
@@ -65,11 +54,6 @@ const PostPage = () => {
         }
       } catch (err) {
         console.error("Error fetching post:", err);
-        if (err.response?.status === 401) {
-          dispatch(setLogout());
-          navigate("/login");
-          return;
-        }
         setError("Failed to load post");
       } finally {
         setLoading(false);
@@ -79,7 +63,7 @@ const PostPage = () => {
     if (postId) {
       fetchPost();
     }
-  }, [postId, localUser?.token, dispatch, navigate]);
+  }, [postId]);
 
   const imageExtensions = ["jpeg", "jpg", "png", "gif"];
   const videoExtensions = ["mp4", "avi", "mkv", "mov"];

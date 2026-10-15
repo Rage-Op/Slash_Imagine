@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "@/lib/axios";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -34,12 +34,7 @@ const AdminPage = () => {
   useEffect(() => {
     const fetchUserRole = async () => {
       try {
-        const url = `${import.meta.env.VITE_BASE_URL}/user/get-user`;
-        const headers = {
-          "Content-Type": "application/json",
-          "x-access-token": localUser.token,
-        };
-        const res = await axios.post(url, {}, { headers });
+        const res = await api.post("/user/get-user", {});
         setUserRole(res.data.role);
         
         if (res.data.role === "Admin") {
@@ -52,12 +47,7 @@ const AdminPage = () => {
 
     const fetchUsers = async () => {
       try {
-        const url = `${import.meta.env.VITE_BASE_URL}/user/list-users`;
-        const headers = {
-          "Content-Type": "application/json",
-          "x-access-token": localUser.token,
-        };
-        const res = await axios.get(url, { headers });
+        const res = await api.get("/user/list-users");
         setUsers(res.data.users || []);
       } catch (err) {
         console.error("Error fetching users:", err);
@@ -74,18 +64,11 @@ const AdminPage = () => {
     if (localUser?.token) {
       fetchUserRole();
     }
-  }, [localUser?.token]);
+  }, [localUser?.token, toast]);
 
   const handleRoleChange = async (userName, newRole) => {
     try {
-      const url = `${import.meta.env.VITE_BASE_URL}/user/change-role`;
-      const headers = {
-        "Content-Type": "application/json",
-        "x-access-token": localUser.token,
-      };
-      const body = { userName, newRole };
-      
-      await axios.post(url, body, { headers });
+      await api.post("/user/change-role", { userName, newRole });
       
       setUsers(users.map(user => 
         user.userName === userName ? { ...user, role: newRole } : user
@@ -99,7 +82,7 @@ const AdminPage = () => {
       console.error("Error updating role:", err);
       toast({
         title: "Error",
-        description: "Failed to update role",
+        description: err.response?.data?.message || "Failed to update role",
         variant: "destructive",
       });
     }

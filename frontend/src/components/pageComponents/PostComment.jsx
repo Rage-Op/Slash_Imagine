@@ -1,9 +1,7 @@
-import React, { useContext, useState, useEffect } from "react";
+import { useContext, useState, useEffect } from "react";
 import { Context } from "@/pages/Home";
-import { useSelector, useDispatch } from "react-redux";
-import { setLogout } from "@/state/state";
-import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import { useSelector } from "react-redux";
+import api from "@/lib/axios";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -16,8 +14,6 @@ const pluralize = (count, singular, plural) => count === 1 ? singular : plural;
 export const PostComment = ({ item }) => {
   const [posts, setPosts] = useContext(Context);
   const localUser = useSelector((state) => state.user);
-  const dispatch = useDispatch();
-  const navigate = useNavigate();
   const [authorMap, setAuthorMap] = useState({});
 
   useEffect(() => {
@@ -26,19 +22,10 @@ export const PostComment = ({ item }) => {
       if (userNames.length === 0) return;
       
       try {
-        const headers = {
-          "Content-Type": "application/json",
-          "x-access-token": localUser.token,
-        };
-        
         const authorData = {};
         for (const userName of userNames) {
           try {
-            const res = await axios.post(
-              `${import.meta.env.VITE_BASE_URL}/user/get-user`,
-              { userName },
-              { headers }
-            );
+            const res = await api.post("/user/get-user", { userName });
             authorData[userName] = {
               firstName: res.data.firstName,
               lastName: res.data.lastName,
@@ -58,21 +45,13 @@ export const PostComment = ({ item }) => {
     if (item.comments.length > 0) {
       fetchAuthors();
     }
-  }, [item.comments, localUser.token]);
+  }, [item.comments]);
 
   const handleDeleteComment = async (commentId) => {
     try {
-      const url = `${import.meta.env.VITE_BASE_URL}/posts/delete-comment`;
-      const headers = {
-        "Content-Type": "application/json",
-        "x-access-token": localUser.token,
-      };
-      const body = {
-        postId: item._id,
-        commentId: commentId,
-      };
-      
-      await axios.delete(url, { headers, data: body });
+      await api.delete("/posts/delete-comment", {
+        data: { postId: item._id, commentId }
+      });
       
       setPosts((prevPosts) =>
         prevPosts.map((post) => {
@@ -88,10 +67,6 @@ export const PostComment = ({ item }) => {
       );
     } catch (err) {
       console.error("Error deleting comment:", err);
-      if (err.response?.status === 401) {
-        dispatch(setLogout());
-        navigate("/login");
-      }
     }
   };
 

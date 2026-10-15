@@ -1,40 +1,23 @@
-import React, { useState, useContext } from "react";
+import { useState, useContext } from "react";
 import { Context } from "@/pages/Home";
-import { useSelector, useDispatch } from "react-redux";
-import { setLogout } from "@/state/state";
-import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import { useSelector } from "react-redux";
+import api from "@/lib/axios";
 
 export const HeartButton = ({ postId, initialLiked }) => {
   const [isChecked, setIsChecked] = useState(initialLiked);
   const [isLoading, setIsLoading] = useState(false);
   const localUser = useSelector((state) => state.user);
-  const dispatch = useDispatch();
-  const navigate = useNavigate();
-  const [posts, setPosts] = useContext(Context);
+  const [, setPosts] = useContext(Context);
   
   const handleChange = async () => {
     if (isLoading) return;
     setIsLoading(true);
     
     try {
-      const headers = {
-        "Content-Type": "application/json",
-        "x-access-token": localUser.token,
-      };
-      const body = { postId };
-      
-      const { data: post } = await axios.get(
-        `${import.meta.env.VITE_BASE_URL}/posts/get-post/${postId}`,
-        { headers }
-      );
+      const { data: post } = await api.get(`/posts/get-post/${postId}`);
 
       if (post.likedByUsers.includes(localUser.userName)) {
-        const res = await axios.post(
-          `${import.meta.env.VITE_BASE_URL}/posts/remove-Like`,
-          body,
-          { headers }
-        );
+        const res = await api.post("/posts/remove-Like", { postId });
         if (res.status === 200) {
           setIsChecked(false);
           setPosts((prevPosts) =>
@@ -50,11 +33,7 @@ export const HeartButton = ({ postId, initialLiked }) => {
           );
         }
       } else {
-        const res = await axios.post(
-          `${import.meta.env.VITE_BASE_URL}/posts/add-Like`,
-          body,
-          { headers }
-        );
+        const res = await api.post("/posts/add-Like", { postId });
         if (res.status === 200) {
           setIsChecked(true);
           setPosts((prevPosts) =>
@@ -72,10 +51,6 @@ export const HeartButton = ({ postId, initialLiked }) => {
       }
     } catch (error) {
       console.error("Error liking post:", error);
-      if (error.response?.status === 401) {
-        dispatch(setLogout());
-        navigate("/login");
-      }
     } finally {
       setIsLoading(false);
     }

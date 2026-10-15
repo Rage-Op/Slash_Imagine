@@ -1,6 +1,4 @@
-import { PlusCircledIcon } from "@radix-ui/react-icons";
-import React, { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
+import { useState, useEffect, useCallback, createContext } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,55 +6,64 @@ import { Menu } from "@/components/pageComponents/Menu";
 import { Sidebar } from "@/components/pageComponents/Sidebar";
 import PostFeedView from "@/components/pageComponents/PostFeedView";
 import { AddPostDialog } from "@/components/pageComponents/AddPostDialog";
-import { useSelector } from "react-redux";
-import axios from "axios";
+import api from "@/lib/axios";
 
-export const metadata = {
-  title: "Slash Imagine",
-  description: "Official slash imagine website",
-};
-
-export const Context = React.createContext();
+export const Context = createContext();
 
 export default function Home() {
   const [posts, setPosts] = useState([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
   const [addPostOpen, setAddPostOpen] = useState(false);
-  const localUser = useSelector((state) => state.user);
 
-  const fetchHomeFeed = async () => {
+  const processPostsResponse = (data) => {
+    return (data.posts || data).map((post) => ({
+      ...post,
+      fullName: post.author?.fullName || 
+        `${post.author?.firstName || ''} ${post.author?.lastName || ''}`.trim() ||
+        post.userName,
+    }));
+  };
+
+  const fetchHomeFeed = useCallback(async (pageNum = 1, append = false) => {
     try {
-      const url = `${import.meta.env.VITE_BASE_URL}/user/get-home-feed`;
-      const headers = {
-        "Content-Type": "application/json",
-        "x-access-token": localUser.token,
-      };
-      const res = await axios.get(url, { headers });
-
-      // Backend now returns posts with author info attached
-      const postsWithFullNames = (res.data.posts || res.data).map((post) => ({
-        ...post,
-        fullName: post.author?.fullName || 
-          `${post.author?.firstName || ''} ${post.author?.lastName || ''}`.trim() ||
-          post.userName,
-      }));
-      setPosts(postsWithFullNames);
+      const res = await api.get(`/user/get-home-feed?page=${pageNum}&limit=20`);
+      const newPosts = processPostsResponse(res.data);
+      
+      if (append) {
+        setPosts(prev => [...prev, ...newPosts]);
+      } else {
+        setPosts(newPosts);
+      }
+      
+      if (res.data.pagination) {
+        setHasMore(pageNum < res.data.pagination.pages);
+      } else {
+        setHasMore(newPosts.length === 20);
+      }
     } catch (err) {
       console.error("Error:", err.response ? err.response.data : err.message);
     }
-  };
+  }, []);
+
+  const loadMore = useCallback(async () => {
+    const nextPage = page + 1;
+    await fetchHomeFeed(nextPage, true);
+    setPage(nextPage);
+  }, [page, fetchHomeFeed]);
 
   useEffect(() => {
-    if (localUser?.token) {
-      fetchHomeFeed();
-    }
-  }, [localUser?.token]);
+    fetchHomeFeed(1, false);
+  }, [fetchHomeFeed]);
 
   const handlePostCreated = () => {
-    fetchHomeFeed();
+    setPage(1);
+    fetchHomeFeed(1, false);
     setAddPostOpen(false);
   };
+
   return (
-    <Context.Provider value={[posts, setPosts]}>
+    <Context.Provider value={[posts, setPosts, { loadMore, hasMore }]}>
       <div className="wrapper h-screen overflow-hidden">
         <Menu />
         <div className="border-t">
@@ -103,7 +110,7 @@ export default function Home() {
                             </div>
                           </div>
                           <Separator className="my-4" />
-                          <PostFeedView className="mb-72" />
+                          <PostFeedView />
                         </ScrollArea>
                       </div>
                     </TabsContent>

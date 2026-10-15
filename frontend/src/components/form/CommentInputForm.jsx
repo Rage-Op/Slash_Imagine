@@ -1,38 +1,26 @@
-import React, { useState, useContext } from "react";
+import { useState, useContext } from "react";
 import { Context } from "@/pages/Home";
-import axios from "axios";
-import { useSelector } from "react-redux";
+import api from "@/lib/axios";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Send } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { commentSchema } from "./../../schemas/comment_schema";
+import { commentSchema } from "@/schemas/comment_schema";
 
 export const CommentInputForm = ({ postId }) => {
   const [comment, setComment] = useState("");
-  const [posts, setPosts] = useContext(Context);
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm({
+  const [, setPosts] = useContext(Context);
+  const { handleSubmit } = useForm({
     resolver: zodResolver(commentSchema),
   });
 
-  const localUser = useSelector((state) => state.user);
   const handleAddComment = async () => {
     try {
-      const url = `${import.meta.env.VITE_BASE_URL}/posts/add-comment`;
-      const body = {
-        postId: postId,
+      const response = await api.post("/posts/add-comment", {
+        postId,
         content: comment,
-      };
-      const headers = {
-        "Content-Type": "application/json",
-        "x-access-token": `${localUser.token}`,
-      };
-      const response = await axios.post(url, body, { headers });
+      });
       setPosts((prevPosts) => {
         const updatedPosts = prevPosts.map((post) => {
           if (post._id === postId) {
