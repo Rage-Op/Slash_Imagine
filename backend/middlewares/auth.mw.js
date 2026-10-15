@@ -38,7 +38,7 @@ export const verifySignUpBody = async (req, res, next) => {
     // Check for the unique userName or not
     const user = await User_Model.findOne({ userName: req.body.userName });
     if (user) {
-      return res.status(400).send({ message: "UserName already exists" });
+      return res.status(409).send({ message: "Username already taken" });
     }
     next();
   } catch (err) {

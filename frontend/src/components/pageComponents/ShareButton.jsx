@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { useSelector } from "react-redux";
+import axios from "axios";
 import { Share2, Clipboard, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,9 +15,12 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/components/ui/use-toast";
 
 export const ShareButton = ({ postId }) => {
   const [copied, setCopied] = useState(false);
+  const { toast } = useToast();
+  const localUser = useSelector((state) => state.user);
   const [currentUrl, setCurrentUrl] = useState(
     typeof window !== "undefined"
       ? `${window.location.origin}/posts/${postId}`
@@ -32,16 +37,47 @@ export const ShareButton = ({ postId }) => {
     try {
       await navigator.clipboard.writeText(currentUrl);
       setCopied(true);
+      toast({
+        title: "Copied!",
+        description: "Link copied to clipboard",
+      });
+      
+      try {
+        const headers = {
+          "Content-Type": "application/json",
+          "x-access-token": localUser.token,
+        };
+        await axios.post(
+          `${import.meta.env.VITE_BASE_URL}/posts/share/${postId}`,
+          {},
+          { headers }
+        );
+      } catch {
+        // Silently fail - share count increment is optional
+      }
+      
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error("Failed to copy: ", err);
+      toast({
+        title: "Error",
+        description: "Failed to copy link",
+        variant: "destructive",
+      });
     }
   };
 
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Share2 className="h-6 w-6 text-muted-foreground transform hover:scale-110 transition-transform duration-100 !m-2 cursor-pointer" />
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="text-muted-foreground hover:text-foreground"
+          aria-label="Share post"
+        >
+          <Share2 className="h-5 w-5" />
+        </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
@@ -63,6 +99,7 @@ export const ShareButton = ({ postId }) => {
             ) : (
               <Clipboard className="h-4 w-4" />
             )}
+            <span className="sr-only">{copied ? "Copied" : "Copy link"}</span>
           </Button>
         </div>
         <DialogFooter className="sm:justify-start">

@@ -5,30 +5,66 @@ import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const BACKEND_ROOT = path.join(__dirname, "..");
 
-// Ensure upload directories exist
-const ensureDir = (dirPath) => {
-  const fullPath = path.join(__dirname, "..", dirPath);
-  if (!fs.existsSync(fullPath)) {
-    fs.mkdirSync(fullPath, { recursive: true });
-  }
+// Absolute paths for upload directories
+const UPLOAD_DIRS = {
+  profilePictures: path.join(BACKEND_ROOT, "public/assets/profile-pictures"),
+  postPictures: path.join(BACKEND_ROOT, "public/assets/post-pictures"),
+  postVideos: path.join(BACKEND_ROOT, "public/assets/post-videos"),
 };
 
-ensureDir("public/assets/profile-pictures");
-ensureDir("public/assets/post-pictures");
-ensureDir("public/assets/post-videos");
+// Ensure upload directories exist on module load
+Object.values(UPLOAD_DIRS).forEach((dir) => {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+});
 
 // Helper function to generate unique filenames
 const generateFilename = (file) => {
   const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-  const extension = path.extname(file.originalname);
+  const extension = path.extname(file.originalname).toLowerCase();
   return `${uniqueSuffix}${extension}`;
+};
+
+// Helper to delete uploaded files (for cleanup on errors)
+export const deleteUploadedFiles = (files) => {
+  if (!files) return;
+  const fileArray = Array.isArray(files) ? files : [files];
+  fileArray.forEach((file) => {
+    if (file && file.path) {
+      fs.unlink(file.path, (err) => {
+        if (err && err.code !== "ENOENT") {
+          console.error("Error deleting file:", file.path, err.message);
+        }
+      });
+    }
+  });
+};
+
+// Helper to delete file by path
+export const deleteFileByPath = (filePath) => {
+  if (!filePath) return;
+  
+  let fullPath = filePath;
+  if (filePath.startsWith("/assets/")) {
+    fullPath = path.join(BACKEND_ROOT, "public", filePath);
+  } else if (!path.isAbsolute(filePath)) {
+    fullPath = path.join(BACKEND_ROOT, "public", filePath);
+  }
+  
+  fs.unlink(fullPath, (err) => {
+    if (err && err.code !== "ENOENT") {
+      console.error("Error deleting file:", fullPath, err.message);
+    }
+  });
 };
 
 // Profile Picture Upload Configuration
 const profilePictureStorage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, "public/assets/profile-pictures");
+    cb(null, UPLOAD_DIRS.profilePictures);
   },
   filename: function (req, file, cb) {
     const filename = generateFilename(file);
@@ -47,7 +83,7 @@ const profilePictureUpload = multer({
     if (mimeType && extName) {
       return cb(null, true);
     }
-    cb(new Error("Invalid file type. Only images are allowed."));
+    cb(new multer.MulterError("LIMIT_UNEXPECTED_FILE", "Only image files (jpeg, jpg, png, gif) are allowed"));
   },
 });
 
@@ -55,14 +91,15 @@ const profilePictureUpload = multer({
 const postMediaStorage = multer.diskStorage({
   destination: function (req, file, cb) {
     const imageTypes = /jpeg|jpg|png|gif/;
-    const videoTypes = /mp4|avi|mkv|mov|video/;
+    const videoTypes = /mp4|avi|mkv|mov/;
+    const ext = path.extname(file.originalname).toLowerCase();
     
-    if (imageTypes.test(file.mimetype) || imageTypes.test(path.extname(file.originalname).toLowerCase())) {
-      cb(null, "public/assets/post-pictures");
-    } else if (videoTypes.test(file.mimetype) || videoTypes.test(path.extname(file.originalname).toLowerCase())) {
-      cb(null, "public/assets/post-videos");
+    if (imageTypes.test(file.mimetype) || imageTypes.test(ext)) {
+      cb(null, UPLOAD_DIRS.postPictures);
+    } else if (videoTypes.test(file.mimetype) || videoTypes.test(ext)) {
+      cb(null, UPLOAD_DIRS.postVideos);
     } else {
-      cb(new Error("Invalid file type"), null);
+      cb(new multer.MulterError("LIMIT_UNEXPECTED_FILE", "Invalid file type"));
     }
   },
   filename: function (req, file, cb) {
@@ -74,14 +111,34 @@ const postMediaUpload = multer({
   storage: postMediaStorage,
   limits: { fileSize: 100 * 1024 * 1024 }, // 100MB
   fileFilter: (req, file, cb) => {
-    const allowedTypes = /jpeg|jpg|png|gif|mp4|avi|mkv|mov|video/;
+    const allowedTypes = /jpeg|jpg|png|gif|mp4|avi|mkv|mov/;
     const mimeType = allowedTypes.test(file.mimetype);
     const extName = allowedTypes.test(path.extname(file.originalname).toLowerCase());
     if (mimeType && extName) {
       return cb(null, true);
     }
-    cb(new Error("Invalid file type. Only images and videos are allowed."));
+    cb(new multer.MulterError("LIMIT_UNEXPECTED_FILE", "Only image and video files are allowed"));
   },
 });
 
-export { profilePictureUpload, postMediaUpload };
+// Multer error handling middleware
+export const handleMulterError = (err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === "LIMIT_FILE_SIZE") {
+      return res.status(400).json({ message: "File too large" });
+    }
+    if (err.code === "LIMIT_UNEXPECTED_FILE") {
+      return res.status(400).json({ message: err.message || "Invalid file type" });
+    }
+    if (err.code === "LIMIT_FILE_COUNT") {
+      return res.status(400).json({ message: "Too many files" });
+    }
+    return res.status(400).json({ message: err.message || "File upload error" });
+  }
+  if (err && err.message) {
+    return res.status(400).json({ message: err.message });
+  }
+  next(err);
+};
+
+export { profilePictureUpload, postMediaUpload, UPLOAD_DIRS, BACKEND_ROOT };

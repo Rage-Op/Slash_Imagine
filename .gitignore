@@ -34,6 +34,7 @@ coverage/
 # Upload directories (created at runtime)
 backend/public/assets/post-pictures/*
 backend/public/assets/post-videos/*
+backend/public/assets/profile-pictures/*
 !backend/public/assets/post-pictures/.gitkeep
 !backend/public/assets/post-videos/.gitkeep
 !backend/public/assets/profile-pictures/.gitkeep

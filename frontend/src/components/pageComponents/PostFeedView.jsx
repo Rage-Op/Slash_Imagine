@@ -1,18 +1,18 @@
 import React, { useState, useEffect, useRef, useCallback, useContext } from "react";
 import { Context } from "@/pages/Home";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
+import { setLogout } from "@/state/state";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { formatDistanceToNow } from "date-fns";
-import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MoreVertical, MessageCircle, VolumeX, Volume2, Trash2 } from "lucide-react";
+import { MoreVertical, MessageCircle, Trash2, Loader2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -33,11 +33,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import { HeartButton } from "@/components/pageComponents/HeartButton";
 import { ShareButton } from "./ShareButton";
 import { PostComment } from "./PostComment";
+
+const pluralize = (count, singular, plural) => count === 1 ? singular : plural;
 
 const useIntersectionObserver = (callback) => {
   const observerRef = useRef(null);
@@ -68,8 +70,13 @@ const useIntersectionObserver = (callback) => {
 const PostFeedView = () => {
   const [posts, setPosts] = useContext(Context);
   const localUser = useSelector((state) => state.user);
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
   const [muted, setMuted] = useState(true);
   const [deletePostId, setDeletePostId] = useState(null);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const videoRefs = useRef({});
 
   const handleIntersection = useCallback((entries) => {
@@ -110,8 +117,58 @@ const PostFeedView = () => {
       setPosts((prev) => prev.filter((p) => p._id !== postId));
     } catch (err) {
       console.error("Error deleting post:", err);
+      if (err.response?.status === 401) {
+        dispatch(setLogout());
+        navigate("/login");
+      }
     }
     setDeletePostId(null);
+  };
+
+  const loadMorePosts = async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const nextPage = page + 1;
+      const url = `${import.meta.env.VITE_BASE_URL}/user/get-home-feed?page=${nextPage}&limit=20`;
+      const headers = {
+        "Content-Type": "application/json",
+        "x-access-token": localUser.token,
+      };
+      const res = await axios.get(url, { headers });
+      const newPosts = (res.data.posts || []).map((post) => ({
+        ...post,
+        fullName: post.author?.fullName || 
+          `${post.author?.firstName || ''} ${post.author?.lastName || ''}`.trim() ||
+          post.userName,
+      }));
+      
+      if (newPosts.length === 0) {
+        setHasMore(false);
+      } else {
+        setPosts((prev) => [...prev, ...newPosts]);
+        setPage(nextPage);
+        if (res.data.pagination && nextPage >= res.data.pagination.pages) {
+          setHasMore(false);
+        }
+      }
+    } catch (err) {
+      console.error("Error loading more posts:", err);
+      if (err.response?.status === 401) {
+        dispatch(setLogout());
+        navigate("/login");
+      }
+    }
+    setLoadingMore(false);
+  };
+
+  const getInitials = (item) => {
+    const firstName = item.author?.firstName || item.fullName?.split(' ')[0] || '';
+    const lastName = item.author?.lastName || item.fullName?.split(' ')[1] || '';
+    if (firstName && lastName) {
+      return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
+    }
+    return item.userName?.slice(0, 2).toUpperCase() || 'U';
   };
 
   const handleStopPropagation = (event) => event.stopPropagation();
@@ -138,7 +195,7 @@ const PostFeedView = () => {
     <>
       <div className="flex flex-col gap-4 p-4 pt-0 mb-72">
         {posts.map((item) => (
-          <Card key={item._id} className="flex flex-col max-w-[60vw] rounded-lg border p-3">
+          <Card key={item._id} className="flex flex-col max-w-[60vw] rounded-lg border p-3 overflow-hidden">
             <Dialog>
               <DialogTrigger asChild>
                 <div className="flex flex-col cursor-pointer">
@@ -149,21 +206,19 @@ const PostFeedView = () => {
                           <AvatarImage
                             src={item.author?.avatar ? getMediaUrl(item.author.avatar) : undefined}
                           />
-                          <AvatarFallback>
-                            {item.userName?.slice(0, 2).toUpperCase()}
-                          </AvatarFallback>
+                          <AvatarFallback>{getInitials(item)}</AvatarFallback>
                         </Avatar>
                         <div className="flex flex-col gap-0">
                           <div className="text-sm font-medium">{item.fullName || item.userName}</div>
                           <div className="text-xs text-muted-foreground">@{item.userName}</div>
                         </div>
                       </div>
-                      <div className="ml-auto text-xs flex items-center gap-2">
+                      <div className="ml-auto text-xs flex items-center gap-2 flex-shrink-0">
                         {item.createdAt && formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}
                         {item.userName === localUser.userName && (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild onClick={handleStopPropagation}>
-                              <Button variant="ghost" size="icon" className="rounded-full h-8 w-8">
+                              <Button variant="ghost" size="icon" className="rounded-full h-8 w-8" aria-label="Post options">
                                 <MoreVertical className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
@@ -230,17 +285,22 @@ const PostFeedView = () => {
                   
                   <CardFooter className="p-2 pt-0">
                     <Separator className="mb-2" />
-                    <div className="flex w-full justify-around items-center">
+                    <div className="flex w-full justify-around items-center overflow-hidden">
                       <div onClick={handleStopPropagation}>
                         <HeartButton
                           initialLiked={item.likedByUsers?.includes(localUser.userName)}
                           postId={item._id}
                         />
                       </div>
-                      <div className="flex items-center gap-1 text-muted-foreground">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="flex items-center gap-1 text-muted-foreground"
+                        aria-label={`${item.comments?.length || 0} comments`}
+                      >
                         <MessageCircle className="h-5 w-5" />
                         <span className="text-sm">{item.comments?.length || 0}</span>
-                      </div>
+                      </Button>
                       <div onClick={handleStopPropagation}>
                         <ShareButton postId={item._id} />
                       </div>
@@ -254,7 +314,7 @@ const PostFeedView = () => {
                   <DialogTitle className="flex items-center gap-4">
                     <Avatar>
                       <AvatarImage src={item.author?.avatar ? getMediaUrl(item.author.avatar) : undefined} />
-                      <AvatarFallback>{item.userName?.slice(0, 2).toUpperCase()}</AvatarFallback>
+                      <AvatarFallback>{getInitials(item)}</AvatarFallback>
                     </Avatar>
                     <div>
                       <div className="font-semibold">{item.fullName || item.userName}</div>
@@ -299,8 +359,8 @@ const PostFeedView = () => {
                   )}
                   
                   <div className="flex gap-4 text-sm text-muted-foreground">
-                    <span>{item.likes || 0} likes</span>
-                    <span>{item.comments?.length || 0} comments</span>
+                    <span>{item.likes || 0} {pluralize(item.likes || 0, 'like', 'likes')}</span>
+                    <span>{item.comments?.length || 0} {pluralize(item.comments?.length || 0, 'comment', 'comments')}</span>
                   </div>
                   
                   <Separator />
@@ -314,6 +374,25 @@ const PostFeedView = () => {
             </Dialog>
           </Card>
         ))}
+        
+        {hasMore && (
+          <div className="flex justify-center py-4">
+            <Button 
+              variant="outline" 
+              onClick={loadMorePosts}
+              disabled={loadingMore}
+            >
+              {loadingMore ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Loading...
+                </>
+              ) : (
+                'Load More'
+              )}
+            </Button>
+          </div>
+        )}
       </div>
 
       <AlertDialog open={!!deletePostId} onOpenChange={() => setDeletePostId(null)}>

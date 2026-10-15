@@ -9,7 +9,7 @@ import {
   getUser,
   listUsers,
 } from "../controllers/user.controller.js";
-import { profilePictureUpload } from "../controllers/multer.controller.js";
+import { profilePictureUpload, handleMulterError } from "../controllers/multer.controller.js";
 import { isAdmin, verifyToken } from "../middlewares/auth.mw.js";
 import {
   verifyChangeCountryBody,
@@ -27,6 +27,7 @@ router.post(
   "/change-avatar",
   verifyToken,
   profilePictureUpload.single("avatar"),
+  handleMulterError,
   verifyChangeAvatarBody,
   changeAvatar
 );

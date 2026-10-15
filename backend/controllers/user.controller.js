@@ -115,9 +115,22 @@ export const changeRole = async (req, res) => {
       return res.status(400).send({ message: "Invalid role. Must be User, Admin, or Moderator" });
     }
     
+    // Prevent admin from changing their own role
+    if (targetUserName === req.user.userName) {
+      return res.status(400).send({ message: "You cannot change your own role" });
+    }
+    
     const targetUser = await User_Model.findOne({ userName: targetUserName });
     if (targetUser == null) {
       return res.status(404).send({ message: "Target user not found" });
+    }
+    
+    // Check if this is the last admin and we're demoting them
+    if (targetUser.role === "Admin" && newRole !== "Admin") {
+      const adminCount = await User_Model.countDocuments({ role: "Admin" });
+      if (adminCount <= 1) {
+        return res.status(400).send({ message: "Cannot demote the last admin" });
+      }
     }
     
     targetUser.role = newRole;
@@ -163,8 +176,22 @@ export const addRequest = async (req, res) => {
 // Logic to send user an array of posts from post model to show on the home page
 export const getHomeFeed = async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
+    // Validate and cap pagination parameters
+    let page = parseInt(req.query.page);
+    let limit = parseInt(req.query.limit);
+    
+    // Validate page
+    if (isNaN(page) || page < 1) {
+      page = 1;
+    }
+    
+    // Validate and cap limit (max 100)
+    if (isNaN(limit) || limit < 1) {
+      limit = 20;
+    } else if (limit > 100) {
+      limit = 100;
+    }
+    
     const skip = (page - 1) * limit;
     
     // Get posts sorted by newest first with pagination

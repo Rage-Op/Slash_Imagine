@@ -3,6 +3,7 @@ import axios from "axios";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { useNavigate } from "react-router-dom";
 import {
   Popover,
   PopoverContent,
@@ -21,17 +22,16 @@ import {
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Check, ChevronsUpDown, Upload } from "lucide-react";
+import { Check, ChevronsUpDown, Upload, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { useSelector, useDispatch } from "react-redux";
-import { setLogin } from "@/state/state";
+import { setLogin, setLogout } from "@/state/state";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const countries = [
@@ -50,16 +50,18 @@ const profileFormSchema = z.object({
   firstName: z.string().min(2, "First name must be at least 2 characters"),
   lastName: z.string().min(2, "Last name must be at least 2 characters"),
   country: z.string().optional(),
+  currentPassword: z.string().optional(),
 });
 
 export function SettingsProfileForm() {
   const localUser = useSelector((state) => state.user);
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [avatar, setAvatar] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [originalData, setOriginalData] = useState({ firstName: "", lastName: "", country: "" });
   
   const form = useForm({
     resolver: zodResolver(profileFormSchema),
@@ -67,6 +69,7 @@ export function SettingsProfileForm() {
       firstName: "",
       lastName: "",
       country: "",
+      currentPassword: "",
     },
   });
 
@@ -79,11 +82,13 @@ export function SettingsProfileForm() {
           "x-access-token": localUser.token,
         };
         const res = await axios.post(url, {}, { headers });
-        form.reset({
+        const userData = {
           firstName: res.data.firstName || "",
           lastName: res.data.lastName || "",
           country: res.data.country || "",
-        });
+        };
+        form.reset({ ...userData, currentPassword: "" });
+        setOriginalData(userData);
         if (res.data.avatar) {
           const avatarUrl = res.data.avatar.startsWith("/")
             ? `${import.meta.env.VITE_BASE_URL?.replace("/slash_imagine/api/v1", "")}${res.data.avatar}`
@@ -92,10 +97,14 @@ export function SettingsProfileForm() {
         }
       } catch (err) {
         console.error("Error fetching user:", err);
+        if (err.response?.status === 401) {
+          dispatch(setLogout());
+          navigate("/login");
+        }
       }
     };
     if (localUser?.token) fetchUser();
-  }, [localUser?.token]);
+  }, [localUser?.token, dispatch, navigate]);
 
   const handleAvatarChange = (e) => {
     const file = e.target.files?.[0];
@@ -107,27 +116,15 @@ export function SettingsProfileForm() {
     }
   };
 
-  const uploadAvatar = async () => {
-    if (!avatar) return;
-    setIsUploadingAvatar(true);
-    try {
-      const formData = new FormData();
-      formData.append("avatar", avatar);
-      
-      const url = `${import.meta.env.VITE_BASE_URL}/user/change-avatar`;
-      const headers = { "x-access-token": localUser.token };
-      
-      const res = await axios.post(url, formData, { headers });
-      toast({ title: "Success", description: "Avatar updated successfully" });
-      setAvatar(null);
-    } catch (err) {
-      toast({ title: "Error", description: "Failed to upload avatar", variant: "destructive" });
-    } finally {
-      setIsUploadingAvatar(false);
-    }
-  };
-
   const onSubmit = async (data) => {
+    const nameChanged = data.firstName !== originalData.firstName || data.lastName !== originalData.lastName;
+    const countryChanged = data.country && data.country !== originalData.country;
+    
+    if (nameChanged && !data.currentPassword) {
+      form.setError("currentPassword", { message: "Password required to change name" });
+      return;
+    }
+    
     setIsSubmitting(true);
     try {
       const headers = {
@@ -135,19 +132,32 @@ export function SettingsProfileForm() {
         "x-access-token": localUser.token,
       };
 
-      // Update name
-      await axios.post(
-        `${import.meta.env.VITE_BASE_URL}/auth/change-name`,
-        {
-          newFirstName: data.firstName,
-          newLastName: data.lastName,
-          password: prompt("Enter your password to confirm changes:"),
-        },
-        { headers }
-      );
+      // Upload avatar if selected
+      if (avatar) {
+        const formData = new FormData();
+        formData.append("avatar", avatar);
+        await axios.post(
+          `${import.meta.env.VITE_BASE_URL}/user/change-avatar`,
+          formData,
+          { headers: { "x-access-token": localUser.token } }
+        );
+      }
 
-      // Update country if changed
-      if (data.country) {
+      // Update name if changed (requires password)
+      if (nameChanged) {
+        await axios.post(
+          `${import.meta.env.VITE_BASE_URL}/auth/change-name`,
+          {
+            newFirstName: data.firstName,
+            newLastName: data.lastName,
+            password: data.currentPassword,
+          },
+          { headers }
+        );
+      }
+
+      // Update country if changed (no password required)
+      if (countryChanged) {
         await axios.post(
           `${import.meta.env.VITE_BASE_URL}/user/change-country`,
           { newCountry: data.country },
@@ -161,8 +171,18 @@ export function SettingsProfileForm() {
         token: localUser.token,
       }));
 
+      setAvatar(null);
+      setOriginalData({ firstName: data.firstName, lastName: data.lastName, country: data.country });
+      form.setValue("currentPassword", "");
+      
       toast({ title: "Success", description: "Profile updated successfully" });
     } catch (err) {
+      console.error("Error updating profile:", err);
+      if (err.response?.status === 401) {
+        dispatch(setLogout());
+        navigate("/login");
+        return;
+      }
       toast({
         title: "Error",
         description: err.response?.data?.message || "Failed to update profile",
@@ -173,37 +193,39 @@ export function SettingsProfileForm() {
     }
   };
 
+  const firstName = form.watch("firstName");
+  const lastName = form.watch("lastName");
+  const initials = `${firstName?.charAt(0) || ''}${lastName?.charAt(0) || ''}`.toUpperCase();
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-6">
-        <Avatar className="h-24 w-24">
-          <AvatarImage src={avatarPreview} />
-          <AvatarFallback className="text-2xl">
-            {localUser?.firstName?.charAt(0)}{localUser?.lastName?.charAt(0)}
-          </AvatarFallback>
-        </Avatar>
-        <div className="space-y-2">
-          <label className="cursor-pointer">
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleAvatarChange}
-              className="hidden"
-            />
-            <Button type="button" variant="outline" asChild>
-              <span><Upload className="mr-2 h-4 w-4" />Choose Image</span>
-            </Button>
-          </label>
-          {avatar && (
-            <Button onClick={uploadAvatar} disabled={isUploadingAvatar} size="sm">
-              {isUploadingAvatar ? "Uploading..." : "Upload Avatar"}
-            </Button>
-          )}
-        </div>
-      </div>
-
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <div className="flex items-center gap-6">
+            <Avatar className="h-24 w-24">
+              <AvatarImage src={avatarPreview} />
+              <AvatarFallback className="text-2xl">{initials || "U"}</AvatarFallback>
+            </Avatar>
+            <div className="space-y-2">
+              <label className="cursor-pointer">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/jpg,image/png,image/gif"
+                  onChange={handleAvatarChange}
+                  className="hidden"
+                />
+                <Button type="button" variant="outline" asChild>
+                  <span><Upload className="mr-2 h-4 w-4" />{avatar ? "Change Image" : "Choose Image"}</span>
+                </Button>
+              </label>
+              {avatar && (
+                <p className="text-sm text-muted-foreground">
+                  {avatar.name} selected
+                </p>
+              )}
+            </div>
+          </div>
+
           <FormField
             control={form.control}
             name="firstName"
@@ -285,8 +307,33 @@ export function SettingsProfileForm() {
             )}
           />
 
+          <FormField
+            control={form.control}
+            name="currentPassword"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Current Password</FormLabel>
+                <FormControl>
+                  <Input 
+                    type="password" 
+                    placeholder="Required only to change name" 
+                    {...field} 
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Updating..." : "Update profile"}
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              "Save Changes"
+            )}
           </Button>
         </form>
       </Form>

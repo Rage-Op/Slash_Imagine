@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
-import { useSelector } from "react-redux";
+import { useParams, useNavigate } from "react-router-dom";
+import { useSelector, useDispatch } from "react-redux";
+import { setLogout } from "@/state/state";
 import axios from "axios";
 import { formatDistanceToNow } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -16,10 +17,14 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 
+const pluralize = (count, singular, plural) => count === 1 ? singular : plural;
+
 const PostPage = () => {
   const { postId } = useParams();
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const [post, setPost] = useState(null);
+  const [commentAuthors, setCommentAuthors] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const localUser = useSelector((state) => state.user);
@@ -34,8 +39,37 @@ const PostPage = () => {
         };
         const res = await axios.get(url, { headers });
         setPost(res.data);
+        
+        // Fetch comment authors
+        if (res.data.comments && res.data.comments.length > 0) {
+          const userNames = [...new Set(res.data.comments.map((c) => c.userName))];
+          const authorData = {};
+          for (const userName of userNames) {
+            try {
+              const authorRes = await axios.post(
+                `${import.meta.env.VITE_BASE_URL}/user/get-user`,
+                { userName },
+                { headers }
+              );
+              authorData[userName] = {
+                firstName: authorRes.data.firstName,
+                lastName: authorRes.data.lastName,
+                avatar: authorRes.data.avatar,
+                fullName: `${authorRes.data.firstName || ''} ${authorRes.data.lastName || ''}`.trim(),
+              };
+            } catch {
+              authorData[userName] = { fullName: userName };
+            }
+          }
+          setCommentAuthors(authorData);
+        }
       } catch (err) {
         console.error("Error fetching post:", err);
+        if (err.response?.status === 401) {
+          dispatch(setLogout());
+          navigate("/login");
+          return;
+        }
         setError("Failed to load post");
       } finally {
         setLoading(false);
@@ -45,7 +79,7 @@ const PostPage = () => {
     if (postId) {
       fetchPost();
     }
-  }, [postId, localUser?.token]);
+  }, [postId, localUser?.token, dispatch, navigate]);
 
   const imageExtensions = ["jpeg", "jpg", "png", "gif"];
   const videoExtensions = ["mp4", "avi", "mkv", "mov"];
@@ -87,11 +121,17 @@ const PostPage = () => {
             <div className="flex items-center gap-4">
               <Avatar>
                 <AvatarImage
-                  src={post.author?.avatar || "https://github.com/shadcn.png"}
-                  alt={post.userName}
+                  src={post.author?.avatar 
+                    ? post.author.avatar.startsWith("/")
+                      ? `${import.meta.env.VITE_BASE_URL?.replace("/slash_imagine/api/v1", "")}${post.author.avatar}`
+                      : post.author.avatar
+                    : undefined}
+                  alt={post.author?.fullName || post.userName}
                 />
                 <AvatarFallback>
-                  {post.userName?.slice(0, 2).toUpperCase()}
+                  {post.author?.firstName && post.author?.lastName
+                    ? `${post.author.firstName.charAt(0)}${post.author.lastName.charAt(0)}`.toUpperCase()
+                    : post.userName?.slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <div>
@@ -169,15 +209,15 @@ const PostPage = () => {
             <div className="flex gap-6 text-muted-foreground">
               <div className="flex items-center gap-2">
                 <Heart className="h-5 w-5" />
-                <span>{post.likes || 0} likes</span>
+                <span>{post.likes || 0} {pluralize(post.likes || 0, 'like', 'likes')}</span>
               </div>
               <div className="flex items-center gap-2">
                 <MessageCircle className="h-5 w-5" />
-                <span>{post.commentsCount || 0} comments</span>
+                <span>{post.commentsCount || 0} {pluralize(post.commentsCount || 0, 'comment', 'comments')}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Share2 className="h-5 w-5" />
-                <span>{post.shares || 0} shares</span>
+                <span>{post.shares || 0} {pluralize(post.shares || 0, 'share', 'shares')}</span>
               </div>
             </div>
           </CardFooter>
@@ -189,16 +229,27 @@ const PostPage = () => {
               <h2 className="text-xl font-semibold">Comments</h2>
             </CardHeader>
             <CardContent className="space-y-4">
-              {post.comments.map((comment) => (
+              {post.comments.map((comment) => {
+                const author = commentAuthors[comment.userName] || {};
+                const avatarUrl = author.avatar
+                  ? author.avatar.startsWith("/")
+                    ? `${import.meta.env.VITE_BASE_URL?.replace("/slash_imagine/api/v1", "")}${author.avatar}`
+                    : author.avatar
+                  : undefined;
+                const initials = author.firstName && author.lastName
+                  ? `${author.firstName.charAt(0)}${author.lastName.charAt(0)}`.toUpperCase()
+                  : comment.userName?.slice(0, 2).toUpperCase();
+                
+                return (
                 <div key={comment._id} className="flex gap-3">
                   <Avatar className="h-8 w-8">
-                    <AvatarFallback>
-                      {comment.userName?.slice(0, 2).toUpperCase()}
-                    </AvatarFallback>
+                    <AvatarImage src={avatarUrl} />
+                    <AvatarFallback>{initials}</AvatarFallback>
                   </Avatar>
                   <div>
-                    <div className="font-medium text-sm">{comment.userName}</div>
-                    <div className="text-sm">{comment.content}</div>
+                    <div className="font-medium text-sm">{author.fullName || comment.userName}</div>
+                    <div className="text-xs text-muted-foreground">@{comment.userName}</div>
+                    <div className="text-sm mt-1">{comment.content}</div>
                     <div className="text-xs text-muted-foreground mt-1">
                       {formatDistanceToNow(new Date(comment.createdAt), {
                         addSuffix: true,
@@ -206,7 +257,8 @@ const PostPage = () => {
                     </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </CardContent>
           </Card>
         )}

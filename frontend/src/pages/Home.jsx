@@ -58,7 +58,7 @@ export default function Home() {
   return (
     <Context.Provider value={[posts, setPosts]}>
       <div className="wrapper h-screen overflow-hidden">
-        <Menu user={localUser} />
+        <Menu />
         <div className="border-t">
           <div className="bg-background">
             <div className="grid lg:grid-cols-5">

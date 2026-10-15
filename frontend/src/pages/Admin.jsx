@@ -155,15 +155,21 @@ const AdminPage = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {users.map((user) => (
+                {users.map((user) => {
+                  const avatarUrl = user.avatar
+                    ? user.avatar.startsWith("/")
+                      ? `${import.meta.env.VITE_BASE_URL?.replace("/slash_imagine/api/v1", "")}${user.avatar}`
+                      : user.avatar
+                    : null;
+                  const initials = `${user.firstName?.charAt(0) || ''}${user.lastName?.charAt(0) || ''}`.toUpperCase();
+                  
+                  return (
                   <TableRow key={user.userName}>
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar className="h-8 w-8">
-                          <AvatarImage src={user.avatar} />
-                          <AvatarFallback>
-                            {user.firstName?.charAt(0)}{user.lastName?.charAt(0)}
-                          </AvatarFallback>
+                          <AvatarImage src={avatarUrl} />
+                          <AvatarFallback>{initials || 'U'}</AvatarFallback>
                         </Avatar>
                         <span>{user.firstName} {user.lastName}</span>
                       </div>
@@ -207,7 +213,8 @@ const AdminPage = () => {
                       </Select>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           </CardContent>

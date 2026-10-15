@@ -2,13 +2,49 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { User_Model } from "../models/user.model.js";
 
+// Password validation helper (same rules as frontend)
+const validatePassword = (password) => {
+  if (!password || password.length < 8) {
+    return "Password must be at least 8 characters long";
+  }
+  if (!/[A-Z]/.test(password)) {
+    return "Password must contain at least one uppercase letter";
+  }
+  if (!/[a-z]/.test(password)) {
+    return "Password must contain at least one lowercase letter";
+  }
+  if (!/[0-9]/.test(password)) {
+    return "Password must contain at least one number";
+  }
+  if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+    return "Password must contain at least one special character";
+  }
+  return null;
+};
+
 // Logic to register a user
 export const signup = async (req, res) => {
   try {
-    // read the request body
     const request_body = req.body;
+    
+    // Validate password strength
+    const passwordError = validatePassword(request_body.password);
+    if (passwordError) {
+      return res.status(400).send({ message: passwordError });
+    }
+    
+    // Check for existing email
+    const existingEmail = await User_Model.findOne({ email: request_body.email });
+    if (existingEmail) {
+      return res.status(409).send({ message: "Email already in use" });
+    }
+    
+    // Check for existing username
+    const existingUsername = await User_Model.findOne({ userName: request_body.userName });
+    if (existingUsername) {
+      return res.status(409).send({ message: "Username already taken" });
+    }
 
-    // insert the data in the users collection
     const userObj = {
       firstName: request_body.firstName,
       lastName: request_body.lastName,
@@ -19,39 +55,43 @@ export const signup = async (req, res) => {
       password: bcrypt.hashSync(request_body.password, 8),
       email: request_body.email,
     };
-    try {
-      const user_created = await User_Model.create(userObj);
-      // generate JWT token
-      const token = jwt.sign(
-        { userName: user_created.userName },
-        process.env.JWT_SECRET,
-        {
-          expiresIn: "30d",
-        }
-      );
-      // return the user
-      const res_obj = {
-        firstName: user_created.firstName,
-        lastName: user_created.lastName,
-        userName: user_created.userName,
-        dob: user_created.dob,
-        contactNumber: user_created.contactNumber,
-        country: user_created.country,
-        email: user_created.email,
-        accessToken: token,
-      };
-      res.status(201).send(res_obj);
-    } catch (err) {
-      // handle the error and send the response back to the user along with the err object
-      console.log("error while registerng the user", err);
-      res
-        .status(500)
-        .send({ message: "Some error occurred while registering", error: err });
-    }
-    // return response back to the user
+    
+    const user_created = await User_Model.create(userObj);
+    
+    const token = jwt.sign(
+      { userName: user_created.userName },
+      process.env.JWT_SECRET,
+      { expiresIn: "30d" }
+    );
+    
+    const res_obj = {
+      firstName: user_created.firstName,
+      lastName: user_created.lastName,
+      userName: user_created.userName,
+      dob: user_created.dob,
+      contactNumber: user_created.contactNumber,
+      country: user_created.country,
+      email: user_created.email,
+      accessToken: token,
+    };
+    
+    res.status(201).send(res_obj);
   } catch (error) {
-    console.error("Error creating user:", error);
-    res.status(500).send({ message: "Some error occurred while error", error });
+    console.error("Error creating user:", error.message);
+    
+    // Handle MongoDB duplicate key error (shouldn't happen with pre-checks, but just in case)
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyPattern || {})[0];
+      if (field === "email") {
+        return res.status(409).send({ message: "Email already in use" });
+      }
+      if (field === "userName") {
+        return res.status(409).send({ message: "Username already taken" });
+      }
+      return res.status(409).send({ message: "Duplicate entry" });
+    }
+    
+    res.status(500).send({ message: "Error creating user" });
   }
 };
 
@@ -101,35 +141,33 @@ export const signin = async (req, res) => {
 // Logic to change password
 export const changePassword = async (req, res) => {
   try {
-    // check if userId id present in the database
     const user = await User_Model.findOne({ userName: req.user.userName });
     if (user == null) {
       return res.status(400).send({ message: "Invalid userName" });
     }
-    // check if password is correct
-    const isPasswordValid = bcrypt.compareSync(
-      req.body.password,
-      user.password
-    );
+    
+    const isPasswordValid = bcrypt.compareSync(req.body.password, user.password);
     if (!isPasswordValid) {
       return res.status(400).send({ message: "Invalid password" });
     }
-    // check if new password is same as old password
+    
     if (req.body.newPassword === req.body.password) {
-      return res
-        .status(400)
-        .send({ message: "New password cannot be same as old password" });
+      return res.status(400).send({ message: "New password cannot be same as old password" });
     }
-    // update the password
+    
+    // Validate new password strength
+    const passwordError = validatePassword(req.body.newPassword);
+    if (passwordError) {
+      return res.status(400).send({ message: passwordError });
+    }
+    
     user.password = bcrypt.hashSync(req.body.newPassword, 8);
     await user.save();
-    // return success message
+    
     res.status(200).send({ message: "Password updated successfully" });
   } catch (error) {
-    console.error("Error updating password:", error);
-    res
-      .status(500)
-      .send({ message: "Some error occurred while updating password", error });
+    console.error("Error updating password:", error.message);
+    res.status(500).send({ message: "Error updating password" });
   }
 };
 

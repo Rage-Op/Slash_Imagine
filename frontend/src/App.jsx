@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import "./App.css";
 import { Login } from "./pages/Login";
@@ -11,8 +12,13 @@ import { accountLayout } from "./components/settingsComponents/accountLayout";
 import { appearanceLayout } from "./components/settingsComponents/appearanceLayout";
 import { notificationsLayout } from "./components/settingsComponents/notificationsLayout";
 import { displayLayout } from "./components/settingsComponents/displayLayout";
+import { Toaster } from "./components/ui/toaster";
 
 function App() {
+  useEffect(() => {
+    document.title = "/Imagine";
+  }, []);
+
   return (
     <Router>
       <Routes>
@@ -89,6 +95,7 @@ function App() {
         {/* Catch all - redirect to home */}
         <Route path="*" element={<Navigate to="/home" replace />} />
       </Routes>
+      <Toaster />
     </Router>
   );
 }

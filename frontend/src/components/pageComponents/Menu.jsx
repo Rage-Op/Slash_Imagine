@@ -14,14 +14,14 @@ import { setLogout } from "@/state/state";
 import { useState, useEffect } from "react";
 import axios from "axios";
 
-export function Menu({ user }) {
+export function Menu() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const localUser = useSelector((state) => state.user);
-  const [userRole, setUserRole] = useState(null);
+  const [userData, setUserData] = useState(null);
 
   useEffect(() => {
-    const fetchUserRole = async () => {
+    const fetchUserData = async () => {
       try {
         const url = `${import.meta.env.VITE_BASE_URL}/user/get-user`;
         const headers = {
@@ -29,13 +29,17 @@ export function Menu({ user }) {
           "x-access-token": localUser.token,
         };
         const res = await axios.post(url, {}, { headers });
-        setUserRole(res.data.role);
+        setUserData(res.data);
       } catch (err) {
-        console.error("Error fetching user role:", err);
+        console.error("Error fetching user data:", err);
+        if (err.response?.status === 401) {
+          dispatch(setLogout());
+          navigate("/login");
+        }
       }
     };
-    if (localUser?.token) fetchUserRole();
-  }, [localUser?.token]);
+    if (localUser?.token) fetchUserData();
+  }, [localUser?.token, dispatch, navigate]);
 
   const handleLogOut = () => {
     dispatch(setLogout());
@@ -43,14 +47,20 @@ export function Menu({ user }) {
   };
 
   const getAvatarUrl = () => {
-    if (user?.avatar) {
-      if (user.avatar.startsWith("/")) {
-        return `${import.meta.env.VITE_BASE_URL?.replace("/slash_imagine/api/v1", "")}${user.avatar}`;
+    const avatar = userData?.avatar || localUser?.avatar;
+    if (avatar) {
+      if (avatar.startsWith("/")) {
+        return `${import.meta.env.VITE_BASE_URL?.replace("/slash_imagine/api/v1", "")}${avatar}`;
       }
-      return user.avatar;
+      return avatar;
     }
     return null;
   };
+
+  const firstName = userData?.firstName || localUser?.firstName || "";
+  const lastName = userData?.lastName || localUser?.lastName || "";
+  const fullName = `${firstName} ${lastName}`.trim();
+  const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
 
   return (
     <Menubar className="rounded-none border-b justify-start border-none px-2 lg:px-4">
@@ -70,12 +80,10 @@ export function Menu({ user }) {
       <MenubarMenu className="!ml-auto">
         <MenubarTrigger className="cursor-pointer">
           <div className="flex justify-between items-center gap-4">
-            <div>{`${user?.firstName || ''} ${user?.lastName || ''}`}</div>
+            <div>{fullName || localUser?.userName}</div>
             <Avatar>
               <AvatarImage src={getAvatarUrl()} />
-              <AvatarFallback>
-                {user?.firstName?.charAt(0)}{user?.lastName?.charAt(0)}
-              </AvatarFallback>
+              <AvatarFallback>{initials || "U"}</AvatarFallback>
             </Avatar>
           </div>
         </MenubarTrigger>
@@ -92,7 +100,7 @@ export function Menu({ user }) {
               Settings
             </MenubarItem>
           </Link>
-          {userRole === "Admin" && (
+          {userData?.role === "Admin" && (
             <>
               <MenubarSeparator />
               <Link to="/admin">

@@ -26,15 +26,20 @@ app.use(bodyParser.json({ limit: "30mb", extended: "true" }));
 app.use(bodyParser.urlencoded({ limit: "30mb", extended: "true" }));
 app.use(cors());
 app.use("/assets", express.static(path.join(__dirname, "public/assets")));
-// CONFIGUARTIONS
+
+// Health check endpoint
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
+});
 
 // MONGOOSE
 const PORT = process.env.PORT || 6001;
+const HOST = process.env.HOST || "127.0.0.1";
 mongoose
   .connect(process.env.MONGO_URL)
   .then(() => {
     init();
-    app.listen(PORT, () => console.log(`Server Port: ${PORT}`));
+    app.listen(PORT, HOST, () => console.log(`Server running at http://${HOST}:${PORT}`));
   })
   .catch((error) => console.log(`${error} did not connect`));
 // MONGOOSE
