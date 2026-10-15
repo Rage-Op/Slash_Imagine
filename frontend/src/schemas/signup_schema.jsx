@@ -1,6 +1,5 @@
 // create a register form schema using zod
 import * as z from "zod";
-import isDate from "validator/lib/isDate";
 import isEmail from "validator/lib/isEmail";
 import isMobilePhone from "validator/lib/isMobilePhone";
 export const signupSchema = z

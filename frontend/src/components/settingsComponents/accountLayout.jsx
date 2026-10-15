@@ -1,4 +1,3 @@
-import React from "react";
 import { Separator } from "@/components/ui/separator";
 import { AccountForm } from "@/components/form/AccountForm";
 

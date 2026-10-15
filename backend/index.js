@@ -16,7 +16,7 @@ import { User_Model } from "./models/user.model.js";
 // CONFIGURATIONS
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-dotenv.config();
+dotenv.config({ path: path.join(__dirname, ".env") });
 const app = express();
 app.use(express.json());
 app.use(helmet());
@@ -41,7 +41,10 @@ mongoose
     init();
     app.listen(PORT, HOST, () => console.log(`Server running at http://${HOST}:${PORT}`));
   })
-  .catch((error) => console.log(`${error} did not connect`));
+  .catch((error) => {
+    console.error(`Database connection failed: ${error.message}`);
+    process.exit(1);
+  });
 // MONGOOSE
 
 // INITIALIZE ADMIN USER

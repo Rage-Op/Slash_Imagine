@@ -1,4 +1,5 @@
 import { User_Model, Request_Model, Post_Model } from "../models/user.model.js";
+import { deleteFileByPath } from "./multer.controller.js";
 
 // Logic to list all users (admin only)
 export const listUsers = async (req, res) => {
@@ -42,7 +43,11 @@ export const changeAvatar = async (req, res) => {
       return res.status(400).send({ message: "No avatar file uploaded" });
     }
     
-    // Fixed: Include /assets prefix in the path
+    // Delete old avatar file if it exists and is not the default
+    if (user.avatar && user.avatar.startsWith("/assets/profile-pictures/")) {
+      deleteFileByPath(user.avatar);
+    }
+    
     const newAvatar = `/assets/profile-pictures/${req.body.avatarFilename}`;
     user.avatar = newAvatar;
     await user.save();

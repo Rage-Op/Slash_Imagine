@@ -427,3 +427,191 @@ describe('Share Count API', () => {
     expect(updatedPost.shares).toBe(1);
   });
 });
+
+describe('Post Validation', () => {
+  describe('POST /posts/add-post validation', () => {
+    it('should return 400 when title is missing', async () => {
+      const { token } = await createTestUser();
+      
+      const res = await request(app)
+        .post('/slash_imagine/api/v1/posts/add-post')
+        .set('x-access-token', token)
+        .send({
+          content: 'This is test content without title'
+        });
+      
+      expect(res.status).toBe(400);
+      expect(res.body.message).toContain('Title and content are required');
+    });
+
+    it('should return 400 when content is missing', async () => {
+      const { token } = await createTestUser();
+      
+      const res = await request(app)
+        .post('/slash_imagine/api/v1/posts/add-post')
+        .set('x-access-token', token)
+        .send({
+          title: 'Test title without content'
+        });
+      
+      expect(res.status).toBe(400);
+      expect(res.body.message).toContain('Title and content are required');
+    });
+  });
+});
+
+describe('Auth Email/Contact Number Conflicts', () => {
+  describe('POST /auth/change-email', () => {
+    it('should return 409 when email is already in use', async () => {
+      const { token } = await createTestUser({ 
+        email: 'original@example.com',
+        userName: 'testuser1'
+      });
+      await createTestUser({ 
+        email: 'taken@example.com', 
+        userName: 'testuser2',
+        contactNumber: '+1999999999'
+      });
+      
+      const res = await request(app)
+        .post('/slash_imagine/api/v1/auth/change-email')
+        .set('x-access-token', token)
+        .send({
+          password: 'Test@123456',
+          newEmail: 'taken@example.com'
+        });
+      
+      expect(res.status).toBe(409);
+      expect(res.body.message).toContain('Email already in use');
+    });
+
+    it('should normalize email to lowercase', async () => {
+      const { token } = await createTestUser({ 
+        email: 'original@example.com',
+        userName: 'testuser1'
+      });
+      
+      const res = await request(app)
+        .post('/slash_imagine/api/v1/auth/change-email')
+        .set('x-access-token', token)
+        .send({
+          password: 'Test@123456',
+          newEmail: 'NEW@EXAMPLE.COM'
+        });
+      
+      expect(res.status).toBe(200);
+      
+      const updatedUser = await User_Model.findOne({ userName: 'testuser1' });
+      expect(updatedUser.email).toBe('new@example.com');
+    });
+
+    it('should return 409 for case-insensitive email conflict', async () => {
+      const { token } = await createTestUser({ 
+        email: 'original@example.com',
+        userName: 'testuser1'
+      });
+      await createTestUser({ 
+        email: 'taken@example.com', 
+        userName: 'testuser2',
+        contactNumber: '+1999999999'
+      });
+      
+      const res = await request(app)
+        .post('/slash_imagine/api/v1/auth/change-email')
+        .set('x-access-token', token)
+        .send({
+          password: 'Test@123456',
+          newEmail: 'TAKEN@EXAMPLE.COM'
+        });
+      
+      expect(res.status).toBe(409);
+    });
+  });
+
+  describe('POST /auth/change-contact-number', () => {
+    it('should return 409 when contact number is already in use', async () => {
+      const { token } = await createTestUser({ 
+        contactNumber: '+1111111111',
+        userName: 'testuser1'
+      });
+      await createTestUser({ 
+        contactNumber: '+1222222222', 
+        userName: 'testuser2',
+        email: 'user2@example.com'
+      });
+      
+      const res = await request(app)
+        .post('/slash_imagine/api/v1/auth/change-contact-number')
+        .set('x-access-token', token)
+        .send({
+          password: 'Test@123456',
+          newContactNumber: '+1222222222'
+        });
+      
+      expect(res.status).toBe(409);
+      expect(res.body.message).toContain('Contact number already in use');
+    });
+
+    it('should allow changing to unique contact number', async () => {
+      const { token } = await createTestUser({ 
+        contactNumber: '+1111111111',
+        userName: 'testuser1'
+      });
+      
+      const res = await request(app)
+        .post('/slash_imagine/api/v1/auth/change-contact-number')
+        .set('x-access-token', token)
+        .send({
+          password: 'Test@123456',
+          newContactNumber: '+1333333333'
+        });
+      
+      expect(res.status).toBe(200);
+      
+      const updatedUser = await User_Model.findOne({ userName: 'testuser1' });
+      expect(updatedUser.contactNumber).toBe('+1333333333');
+    });
+  });
+});
+
+describe('Signup Email Normalization', () => {
+  it('should normalize email to lowercase on signup', async () => {
+    const res = await request(app)
+      .post('/slash_imagine/api/v1/auth/signup')
+      .send({
+        firstName: 'Test',
+        lastName: 'User',
+        userName: 'newuser',
+        email: 'TEST@EXAMPLE.COM',
+        password: 'Test@123456',
+        dob: '1990-01-01',
+        contactNumber: '+1444444444',
+        country: 'United States'
+      });
+    
+    expect(res.status).toBe(201);
+    
+    const user = await User_Model.findOne({ userName: 'newuser' });
+    expect(user.email).toBe('test@example.com');
+  });
+
+  it('should detect case-insensitive email duplicates on signup', async () => {
+    await createTestUser({ email: 'existing@example.com' });
+    
+    const res = await request(app)
+      .post('/slash_imagine/api/v1/auth/signup')
+      .send({
+        firstName: 'Test',
+        lastName: 'User',
+        userName: 'newuser',
+        email: 'EXISTING@EXAMPLE.COM',
+        password: 'Test@123456',
+        dob: '1990-01-01',
+        contactNumber: '+1555555555',
+        country: 'United States'
+      });
+    
+    expect(res.status).toBe(409);
+    expect(res.body.message).toContain('Email already in use');
+  });
+});

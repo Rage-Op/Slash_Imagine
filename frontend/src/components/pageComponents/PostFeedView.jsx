@@ -89,12 +89,13 @@ const PostFeedView = () => {
   useEffect(() => {
     if (!observe || !unobserve) return;
 
-    Object.values(videoRefs.current).forEach((video) => {
+    const currentRefs = videoRefs.current;
+    Object.values(currentRefs).forEach((video) => {
       if (video) observe(video);
     });
 
     return () => {
-      Object.values(videoRefs.current).forEach((video) => {
+      Object.values(currentRefs).forEach((video) => {
         if (video) unobserve(video);
       });
     };

@@ -83,7 +83,7 @@ const profilePictureUpload = multer({
     if (mimeType && extName) {
       return cb(null, true);
     }
-    cb(new multer.MulterError("LIMIT_UNEXPECTED_FILE", "Only image files (jpeg, jpg, png, gif) are allowed"));
+    cb(new Error("Only image files (jpeg, jpg, png, gif) are allowed"));
   },
 });
 
@@ -117,7 +117,7 @@ const postMediaUpload = multer({
     if (mimeType && extName) {
       return cb(null, true);
     }
-    cb(new multer.MulterError("LIMIT_UNEXPECTED_FILE", "Only image and video files are allowed"));
+    cb(new Error("Only image and video files are allowed"));
   },
 });
 

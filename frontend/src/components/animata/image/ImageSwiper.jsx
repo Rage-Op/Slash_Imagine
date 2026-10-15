@@ -33,7 +33,7 @@ const useIntersectionObserver = (callback) => {
   return { observe, unobserve };
 };
 
-const ImageSwiper = ({ images, className }) => {
+const ImageSwiper = ({ images, className: _className }) => {
   const videoRefs = useRef([]);
   const handleIntersection = useCallback((entries) => {
     entries.forEach((entry) => {
@@ -51,14 +51,15 @@ const ImageSwiper = ({ images, className }) => {
   useEffect(() => {
     if (!observe || !unobserve) return;
 
-    Object.values(videoRefs.current).forEach((video) => {
+    const currentRefs = videoRefs.current;
+    Object.values(currentRefs).forEach((video) => {
       if (video) {
         observe(video);
       }
     });
 
     return () => {
-      Object.values(videoRefs.current).forEach((video) => {
+      Object.values(currentRefs).forEach((video) => {
         if (video) {
           unobserve(video);
         }

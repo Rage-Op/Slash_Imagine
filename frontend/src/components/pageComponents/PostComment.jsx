@@ -12,7 +12,7 @@ import { Trash2 } from "lucide-react";
 const pluralize = (count, singular, plural) => count === 1 ? singular : plural;
 
 export const PostComment = ({ item }) => {
-  const [posts, setPosts] = useContext(Context);
+  const [, setPosts] = useContext(Context);
   const localUser = useSelector((state) => state.user);
   const [authorMap, setAuthorMap] = useState({});
 

@@ -1,15 +1,18 @@
 import { User_Model } from "../models/user.model.js";
+import { deleteUploadedFiles } from "../controllers/multer.controller.js";
 
 // create a middleware to validate add post request body
 export const verifyAddPostBody = async (req, res, next) => {
   try {
     if (!req.body.title || !req.body.content) {
+      deleteUploadedFiles(req.files);
       return res.status(400).send({
         message: "Title and content are required",
       });
     }
     next();
   } catch (err) {
+    deleteUploadedFiles(req.files);
     console.log("error while validating the request object", err);
     res.status(500).send({ message: "Error validating the request body" });
   }

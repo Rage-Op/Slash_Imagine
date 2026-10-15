@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useSelector } from "react-redux";
 import api from "@/lib/axios";
 import { formatDistanceToNow } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -25,7 +24,6 @@ const PostPage = () => {
   const [commentAuthors, setCommentAuthors] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const localUser = useSelector((state) => state.user);
 
   useEffect(() => {
     const fetchPost = async () => {
@@ -65,7 +63,6 @@ const PostPage = () => {
     }
   }, [postId]);
 
-  const imageExtensions = ["jpeg", "jpg", "png", "gif"];
   const videoExtensions = ["mp4", "avi", "mkv", "mov"];
 
   const isVideo = (media) => {

@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 import { Home, Bookmark, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
-const playlists = ["Recently Added", "Top Songs"];
+
 export function Sidebar({ className }) {
   return (
     <div className={cn("pb-12", className)}>

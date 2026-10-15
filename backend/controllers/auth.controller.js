@@ -26,6 +26,7 @@ const validatePassword = (password) => {
 export const signup = async (req, res) => {
   try {
     const request_body = req.body;
+    const normalizedEmail = request_body.email.toLowerCase().trim();
     
     // Validate password strength
     const passwordError = validatePassword(request_body.password);
@@ -33,8 +34,10 @@ export const signup = async (req, res) => {
       return res.status(400).send({ message: passwordError });
     }
     
-    // Check for existing email
-    const existingEmail = await User_Model.findOne({ email: request_body.email });
+    // Check for existing email (case-insensitive)
+    const existingEmail = await User_Model.findOne({ 
+      email: { $regex: new RegExp(`^${normalizedEmail}$`, 'i') } 
+    });
     if (existingEmail) {
       return res.status(409).send({ message: "Email already in use" });
     }
@@ -53,7 +56,7 @@ export const signup = async (req, res) => {
       contactNumber: request_body.contactNumber,
       country: request_body.country,
       password: bcrypt.hashSync(request_body.password, 8),
-      email: request_body.email,
+      email: normalizedEmail,
     };
     
     const user_created = await User_Model.create(userObj);
@@ -174,81 +177,66 @@ export const changePassword = async (req, res) => {
 // Logic to change email
 export const changeEmail = async (req, res) => {
   try {
-    // check if userId id present in the database
     const user = await User_Model.findOne({ userName: req.user.userName });
     if (user == null) {
       return res.status(400).send({ message: "Invalid userName" });
     }
-    // check if password is correct
-    const isPasswordValid = bcrypt.compareSync(
-      req.body.password,
-      user.password
-    );
+    
+    const isPasswordValid = bcrypt.compareSync(req.body.password, user.password);
     if (!isPasswordValid) {
       return res.status(400).send({ message: "Invalid password" });
     }
-    // check if new email is same as old email
-    if (req.body.newEmail === user.email) {
-      return res
-        .status(400)
-        .send({ message: "New email cannot be same as old email" });
+    
+    const newEmail = req.body.newEmail.toLowerCase().trim();
+    
+    if (newEmail === user.email.toLowerCase()) {
+      return res.status(400).send({ message: "New email cannot be same as old email" });
     }
-    // check if new email is already present in the database
-    if (await User_Model.findOne({ email: req.body.newEmail })) {
-      return res.status(400).send({ message: "Email already in use" });
+    
+    if (await User_Model.findOne({ email: { $regex: new RegExp(`^${newEmail}$`, 'i') } })) {
+      return res.status(409).send({ message: "Email already in use" });
     }
-    // update the email
-    user.email = req.body.newEmail;
+    
+    user.email = newEmail;
     await user.save();
-    // return success message
+    
     res.status(200).send({ message: "Email updated successfully" });
   } catch (error) {
-    console.error("Error updating email:", error);
-    res
-      .status(500)
-      .send({ message: "Some error occurred while updating email", error });
+    console.error("Error updating email:", error.message);
+    res.status(500).send({ message: "Error updating email" });
   }
 };
 
 // Logic to change contact number
 export const changeContactNumber = async (req, res) => {
   try {
-    // check if userId id present in the database
     const user = await User_Model.findOne({ userName: req.user.userName });
     if (user == null) {
       return res.status(400).send({ message: "Invalid userName" });
     }
-    // check if password is correct
-    const isPasswordValid = bcrypt.compareSync(
-      req.body.password,
-      user.password
-    );
+    
+    const isPasswordValid = bcrypt.compareSync(req.body.password, user.password);
     if (!isPasswordValid) {
       return res.status(400).send({ message: "Invalid password" });
     }
-    // check if new contact number is same as old contact number
+    
     if (req.body.newContactNumber === user.contactNumber) {
       return res.status(400).send({
         message: "New contact number cannot be same as old contact number",
       });
     }
-    // check if new contact number is already present in the database
-    if (
-      await User_Model.findOne({ contactNumber: req.body.newContactNumber })
-    ) {
-      return res.status(400).send({ message: "Contact number already in use" });
+    
+    if (await User_Model.findOne({ contactNumber: req.body.newContactNumber })) {
+      return res.status(409).send({ message: "Contact number already in use" });
     }
-    // update the contact number
+    
     user.contactNumber = req.body.newContactNumber;
     await user.save();
-    // return success message
+    
     res.status(200).send({ message: "Contact number updated successfully" });
   } catch (error) {
-    console.error("Error updating contact number:", error);
-    res.status(500).send({
-      message: "Some error occurred while updating contact number",
-      error,
-    });
+    console.error("Error updating contact number:", error.message);
+    res.status(500).send({ message: "Error updating contact number" });
   }
 };
 
