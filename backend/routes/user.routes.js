@@ -7,8 +7,9 @@ import {
   addRequest,
   getHomeFeed,
   getUser,
+  listUsers,
 } from "../controllers/user.controller.js";
-import { profilePictureUpload } from "../controllers/multer.controller.js";
+import { profilePictureUpload, handleMulterError } from "../controllers/multer.controller.js";
 import { isAdmin, verifyToken } from "../middlewares/auth.mw.js";
 import {
   verifyChangeCountryBody,
@@ -26,6 +27,7 @@ router.post(
   "/change-avatar",
   verifyToken,
   profilePictureUpload.single("avatar"),
+  handleMulterError,
   verifyChangeAvatarBody,
   changeAvatar
 );
@@ -44,6 +46,8 @@ router.post(
   changeRole
 );
 router.post("/add-request", verifyToken, verifyAddRequestBody, addRequest);
-// router.get("/home", verifyToken, getHomeFeed);
+
+// Admin routes
+router.get("/list-users", verifyToken, isAdmin, listUsers);
 
 export default router;

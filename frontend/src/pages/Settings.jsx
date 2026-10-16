@@ -1,4 +1,3 @@
-import React from "react";
 import { Separator } from "@/components/ui/separator";
 import SidebarNav from "./../components/settingsComponents/settingsSidebar";
 import { ScrollArea } from "@/components/ui/scroll-area";

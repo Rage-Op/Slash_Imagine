@@ -1,6 +1,5 @@
 // create a register form schema using zod
 import * as z from "zod";
-import isDate from "validator/lib/isDate";
 import isEmail from "validator/lib/isEmail";
 import isMobilePhone from "validator/lib/isMobilePhone";
 export const signupSchema = z
@@ -15,7 +14,7 @@ export const signupSchema = z
       .max(20, { message: "Last name must not exceed 50 characters" }),
     userName: z
       .string()
-      .min(4, { message: "Username must be at least 6 characters long" })
+      .min(6, { message: "Username must be at least 6 characters long" })
       .max(20, { message: "Username must not exceed 20 characters" })
       .regex(/^[a-zA-Z0-9_]+$/, {
         message: "Username must contain only letters, numbers, and underscores",

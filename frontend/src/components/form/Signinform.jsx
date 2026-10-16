@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { signinSchema } from "./../../schemas/signin_schema";
+import { signinSchema } from "@/schemas/signin_schema";
 import {
   Card,
   CardContent,
@@ -21,9 +21,9 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import axios from "axios";
-import { useSelector, useDispatch } from "react-redux";
-import { setLogin } from "./../../state/state";
+import api from "@/lib/axios";
+import { useDispatch } from "react-redux";
+import { setLogin } from "@/state/state";
 
 export const Signinform = () => {
   const navigate = useNavigate();
@@ -43,16 +43,13 @@ export const Signinform = () => {
 
   const onSubmitSignin = async (data) => {
     setPending(true);
-    console.log("submitted", data);
-    console.log(import.meta.env.VITE_BASE_URL);
-    const url = `${import.meta.env.VITE_BASE_URL}/auth/signin`;
     const body = {
       userName: data.userName,
       password: data.password,
     };
 
     try {
-      const res = await axios.post(url, body);
+      const res = await api.post("/auth/signin", body);
       const user = {
         userName: res.data.userName,
         firstName: res.data.firstName,

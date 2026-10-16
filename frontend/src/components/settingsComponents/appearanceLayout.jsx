@@ -1,8 +1,6 @@
 import { Separator } from "@/components/ui/separator";
 import { AppearanceForm } from "@/components/form/AppearanceForm";
 
-import React from "react";
-
 export const appearanceLayout = () => {
   return (
     <>

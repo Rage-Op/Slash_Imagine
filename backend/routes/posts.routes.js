@@ -7,6 +7,7 @@ import {
   getPost,
   deletePost,
   deleteComment,
+  incrementShareCount,
 } from "./../controllers/post.controller.js";
 import {
   verifyAddPostBody,
@@ -16,19 +17,16 @@ import {
   verifyDeleteCommentBody,
 } from "./../middlewares/posts.mw.js";
 import { verifyToken } from "./../middlewares/auth.mw.js";
-import {
-  postPictureUpload,
-  postVideoUpload,
-} from "../controllers/multer.controller.js";
+import { postMediaUpload, handleMulterError } from "../controllers/multer.controller.js";
 
 const router = express.Router();
 
-// route to add a post
+// route to add a post (with multer error handling)
 router.post(
   "/add-post",
   verifyToken,
-  postPictureUpload.array("postPictures", 12),
-  postVideoUpload.array("postVideos", 2),
+  postMediaUpload.array("media", 12),
+  handleMulterError,
   verifyAddPostBody,
   addPost
 );
@@ -55,6 +53,9 @@ router.delete(
   verifyDeleteCommentBody,
   deleteComment
 );
+
+// route to increment share count
+router.post("/share/:postId", verifyToken, incrementShareCount);
 
 // export the router
 export default router;

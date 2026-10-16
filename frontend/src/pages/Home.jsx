@@ -1,84 +1,71 @@
-import { PlusCircledIcon } from "@radix-ui/react-icons";
-import React, { useState, useEffect, useContext } from "react";
-import { Button } from "@/components/ui/button";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { useState, useEffect, useCallback, createContext } from "react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Menu } from "@/components/pageComponents/Menu";
-import { PodcastEmptyPlaceholder } from "@/components/pageComponents/PodcastEmptyPlaceholder";
 import { Sidebar } from "@/components/pageComponents/Sidebar";
 import PostFeedView from "@/components/pageComponents/PostFeedView";
-import { useSelector } from "react-redux";
-import axios from "axios";
-export const metadata = {
-  title: "Slash Imagine",
-  description: "Official slash imagine website",
-};
+import { AddPostDialog } from "@/components/pageComponents/AddPostDialog";
+import api from "@/lib/axios";
 
-export const Context = React.createContext();
+export const Context = createContext();
 
 export default function Home() {
   const [posts, setPosts] = useState([]);
-  // set up useEffect to fetch an api with axios
-  const localUser = useSelector((state) => state.user);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [addPostOpen, setAddPostOpen] = useState(false);
 
-  const fetchUser = async (userName) => {
-    try {
-      const url = `${import.meta.env.VITE_BASE_URL}/user/get-user`;
-      const body = {
-        userName: userName,
-      };
-      const headers = {
-        "Content-Type": "application/json",
-        "x-access-token": `${localUser.token}`,
-      };
-      const res = await axios.post(url, body, { headers });
-      // set the first letter of the first name and last name to capital letters
-      const firstName =
-        res.data.firstName.charAt(0).toUpperCase() +
-        res.data.firstName.slice(1).toLowerCase();
-      const lastName =
-        res.data.lastName.charAt(0).toUpperCase() +
-        res.data.lastName.slice(1).toLowerCase();
-      return `${firstName} ${lastName}`;
-    } catch (err) {
-      console.error(
-        "Error fetching user:",
-        err.response ? err.response.data : err.message
-      );
-    }
+  const processPostsResponse = (data) => {
+    return (data.posts || data).map((post) => ({
+      ...post,
+      fullName: post.author?.fullName || 
+        `${post.author?.firstName || ''} ${post.author?.lastName || ''}`.trim() ||
+        post.userName,
+    }));
   };
 
-  useEffect(() => {
-    const fetchHomeFeed = async () => {
-      try {
-        const url = `${import.meta.env.VITE_BASE_URL}/user/get-home-feed`;
-        const headers = {
-          "Content-Type": "application/json",
-          "x-access-token": `${localUser.token}`,
-        };
-        const res = await axios.get(url, { headers });
-
-        // Map over the posts and fetch user details for each
-        const postsWithFullNames = await Promise.all(
-          res.data.map(async (post) => {
-            const fullName = await fetchUser(post.userName);
-            return { ...post, fullName };
-          })
-        );
-        // Set posts with full names
-        setPosts(postsWithFullNames);
-      } catch (err) {
-        console.error("Error:", err.response ? err.response.data : err.message);
+  const fetchHomeFeed = useCallback(async (pageNum = 1, append = false) => {
+    try {
+      const res = await api.get(`/user/get-home-feed?page=${pageNum}&limit=20`);
+      const newPosts = processPostsResponse(res.data);
+      
+      if (append) {
+        setPosts(prev => [...prev, ...newPosts]);
+      } else {
+        setPosts(newPosts);
       }
-    };
-
-    fetchHomeFeed();
+      
+      if (res.data.pagination) {
+        setHasMore(pageNum < res.data.pagination.pages);
+      } else {
+        setHasMore(newPosts.length === 20);
+      }
+    } catch (err) {
+      console.error("Error:", err.response ? err.response.data : err.message);
+    }
   }, []);
+
+  const loadMore = useCallback(async () => {
+    const nextPage = page + 1;
+    await fetchHomeFeed(nextPage, true);
+    setPage(nextPage);
+  }, [page, fetchHomeFeed]);
+
+  useEffect(() => {
+    fetchHomeFeed(1, false);
+  }, [fetchHomeFeed]);
+
+  const handlePostCreated = () => {
+    setPage(1);
+    fetchHomeFeed(1, false);
+    setAddPostOpen(false);
+  };
+
   return (
-    <Context.Provider value={[posts, setPosts]}>
+    <Context.Provider value={[posts, setPosts, { loadMore, hasMore }]}>
       <div className="wrapper h-screen overflow-hidden">
-        <Menu user={localUser} />
+        <Menu />
         <div className="border-t">
           <div className="bg-background">
             <div className="grid lg:grid-cols-5">
@@ -97,10 +84,11 @@ export default function Home() {
                         </TabsTrigger>
                       </TabsList>
                       <div className="ml-auto mr-0">
-                        <Button>
-                          <PlusCircledIcon className="mr-2 h-4 w-4" />
-                          Add Post
-                        </Button>
+                        <AddPostDialog 
+                          open={addPostOpen} 
+                          onOpenChange={setAddPostOpen}
+                          onPostCreated={handlePostCreated}
+                        />
                       </div>
                     </div>
                     <Separator className="my-4" />
@@ -122,11 +110,7 @@ export default function Home() {
                             </div>
                           </div>
                           <Separator className="my-4" />
-                          <PostFeedView
-                            // posts={posts}
-                            // setPosts={setPosts}
-                            className="mb-72"
-                          />
+                          <PostFeedView />
                         </ScrollArea>
                       </div>
                     </TabsContent>
@@ -137,15 +121,17 @@ export default function Home() {
                       <div className="flex items-center justify-between">
                         <div className="space-y-1">
                           <h2 className="text-2xl font-semibold tracking-tight">
-                            New Episodes
+                            Trending
                           </h2>
                           <p className="text-sm text-muted-foreground">
-                            Your favorite podcasts. Updated daily.
+                            Popular posts across the platform.
                           </p>
                         </div>
                       </div>
                       <Separator className="my-4" />
-                      <PodcastEmptyPlaceholder />
+                      <div className="flex h-[200px] items-center justify-center rounded-md border border-dashed">
+                        <p className="text-muted-foreground">Coming soon...</p>
+                      </div>
                     </TabsContent>
                   </Tabs>
                 </div>

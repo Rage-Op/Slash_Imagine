@@ -108,12 +108,6 @@ const postSchema = new mongoose.Schema(
     medias: {
       type: [String],
       default: [],
-      validate: {
-        validator: function (values) {
-          return values.every((value) => validator.isURL(value));
-        },
-        message: "Invalid URL for post image.",
-      },
     },
     comments: {
       type: [mongoose.Schema.Types.ObjectId],
