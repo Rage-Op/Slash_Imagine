@@ -43,7 +43,6 @@ export const Signinform = () => {
 
   const onSubmitSignin = async (data) => {
     setPending(true);
-    console.log("submitted", data);
     const body = {
       userName: data.userName,
       password: data.password,

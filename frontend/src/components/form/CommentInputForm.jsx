@@ -35,34 +35,33 @@ export const CommentInputForm = ({ postId }) => {
       });
       setComment("");
     } catch (error) {
-      console.log(error);
+      console.error("Error adding comment:", error.message);
     }
   };
   return (
-    <>
-      <form
-        onSubmit={handleSubmit(handleAddComment)}
-        className="absolute bottom-0 left-0 flex w-full max-w-sm items-center space-x-2 mx-2"
+    <form
+      onSubmit={handleSubmit(handleAddComment)}
+      className="flex w-full items-center gap-2 mt-4"
+    >
+      <Input
+        type="text"
+        value={comment}
+        onChange={(event) => {
+          if (event.target.value.length <= 250) {
+            setComment(event.target.value);
+          }
+        }}
+        className="rounded-full flex-1"
+        placeholder="Add a comment..."
+      />
+      <Button
+        type="submit"
+        onClick={handleAddComment}
+        className="rounded-full aspect-square p-0 flex-shrink-0"
+        aria-label="Send comment"
       >
-        <Input
-          type="text"
-          value={comment}
-          onChange={(event) => {
-            if (event.target.value.length <= 250) {
-              setComment(event.target.value);
-            }
-          }}
-          className="rounded-full w-full"
-          placeholder=""
-        />
-        <Button
-          type="submit"
-          onClick={handleAddComment}
-          className="rounded-full aspect-square p-0"
-        >
-          <Send />
-        </Button>
-      </form>
-    </>
+        <Send className="h-4 w-4" />
+      </Button>
+    </form>
   );
 };

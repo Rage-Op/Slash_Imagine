@@ -24,5 +24,7 @@ module.exports = {
     'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
     // Allow custom attributes used by UI libraries (cmdk, radix, etc.)
     'react/no-unknown-property': ['error', { ignore: ['cmdk-input-wrapper'] }],
+    // Warn on console usage but allow warn/error for legitimate logging
+    'no-console': ['warn', { allow: ['warn', 'error'] }],
   },
 }

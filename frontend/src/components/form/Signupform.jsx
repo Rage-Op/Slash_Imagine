@@ -270,7 +270,6 @@ export const Signupform = () => {
 
   const onSubmitSignup = async (data) => {
     setPending(true);
-    console.log("submitted", data);
     const body = {
       firstName: data.firstName,
       lastName: data.lastName,
